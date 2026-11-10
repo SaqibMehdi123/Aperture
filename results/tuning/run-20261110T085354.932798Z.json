@@ -1,0 +1,571 @@
+{
+  "best": {
+    "input_tokens": 289816,
+    "params": {
+      "dedupe_at": 0.2,
+      "keep_n": 6,
+      "threshold": 0.5
+    },
+    "probes_failed": 0,
+    "success_rate": 1.0,
+    "tasks": 30
+  },
+  "manifest": {
+    "aperture_version": "0.2.1",
+    "constraints": {
+      "probes_failed": 0,
+      "success_rate": 1.0
+    },
+    "families": [
+      "needle_qa",
+      "policy_compliance",
+      "aggregate_batch"
+    ],
+    "git_hash": "9d7fd4d6e25cee46ccb1b209260ae578329b2cd7",
+    "grid_size": 48,
+    "objective": "min cumulative input tokens at equal task success",
+    "ran_at": "2026-11-10T08:53:54.932+00:00",
+    "seeds": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209
+    ]
+  },
+  "rows": [
+    {
+      "input_tokens": 289816,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 6,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 289816,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 6,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 289816,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 6,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 419682,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 10,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 419682,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 10,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 419682,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 10,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 526691,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 14,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 526691,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 14,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 526691,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 14,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 20,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 20,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 20,
+        "threshold": 0.5
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 348970,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 6,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 348970,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 6,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 348970,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 6,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 426626,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 10,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 426626,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 10,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 426626,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 10,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527541,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 14,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527541,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 14,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527541,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 14,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 20,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 20,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 20,
+        "threshold": 0.6
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 349492,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 6,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 349492,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 6,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 349492,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 6,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 426633,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 10,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 426633,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 10,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 426633,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 10,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527541,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 14,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527541,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 14,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527541,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 14,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 20,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 20,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 20,
+        "threshold": 0.7
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 359451,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 6,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 359451,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 6,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 359451,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 6,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 441315,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 10,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 441315,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 10,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 441315,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 10,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527604,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 14,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527604,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 14,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 527604,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 14,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.2,
+        "keep_n": 20,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 0.4,
+        "keep_n": 20,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    },
+    {
+      "input_tokens": 633532,
+      "params": {
+        "dedupe_at": 1.1,
+        "keep_n": 20,
+        "threshold": 0.8
+      },
+      "probes_failed": 0,
+      "success_rate": 1.0,
+      "tasks": 30
+    }
+  ]
+}

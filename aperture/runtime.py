@@ -114,6 +114,11 @@ class Session:
             for s in self.window.spans
             if s.span_class == SPAN_TOOL_RESULT and s.created_step >= recent_floor
         )
+        archive = None
+        if self.runtime.store is not None:
+            from aperture.store import ArchiveView
+
+            archive = ArchiveView(self.runtime.store, self.session_id)
         return Features(
             budget_used_frac=round(self.window.used_frac(), 6),
             task_phase=self.task_phase,
@@ -121,6 +126,7 @@ class Session:
             redundancy_score=_redundancy_score(self.window),
             drift_score=0.0,  # drift detector lands in Phase P4 (AG4)
             prefix_hash=self.window.prefix_hash(),
+            archive=archive,
         )
 
     def complete(self) -> ModelResponse:
@@ -129,6 +135,23 @@ class Session:
         features = self.features()  # 1 observe
         plan = rt.selector.select(features)  # 2 select (guardrail lives in engine)
         composed, diffs = rt.engine.compose(self.window, plan, features)  # 3 compose
+
+        # Archive everything the plan dropped ("nothing is ever really lost"):
+        # the pre-call window still holds the originals.
+        if rt.store is not None:
+            for diff in diffs:
+                for drop in diff.dropped_spans:
+                    src = self.window.find(drop.span_id)
+                    if src is not None:
+                        rt.store.archive_put(
+                            self.session_id,
+                            src.span_id,
+                            src.span_class,
+                            src.content,
+                            self.window.step,
+                            src.bytes,
+                        )
+
         outcomes = run_survival_probes(composed, self.probe_specs)  # 4 probes
         resp = rt.model.complete(composed)  # 5 call
 
@@ -183,8 +206,9 @@ class Session:
         )
         if rt.ledger is not None:
             rt.ledger.record(rec)
-            rt.store.put(self.session_id, step, self.window)  # pre-call snapshot
             self._recorded_steps.append(step)
+        if rt.store is not None:
+            rt.store.put(self.session_id, step, self.window)  # pre-call snapshot
         self.window = composed
         self.window.step = step + 1
         self.add_span(resp.text, span_class="assistant")
@@ -206,7 +230,14 @@ def _diff_dict(diff: DiffRecord) -> dict[str, Any]:
 
 
 class Aperture:
-    """Runtime facade wiring model gateway, engine, selector, ledger, store."""
+    """Runtime facade wiring model gateway, engine, selector, ledger, store.
+
+    `model` accepts a model string ("openai/gpt-4o-mini", LiteLLM syntax; P1),
+    any gateway object with `.complete(window)`, or None (deterministic
+    synthetic gateway for tests/offline use).
+    `persist` names a SQLite file for durable snapshots + archive; `store`
+    accepts a pre-built store instance (takes precedence).
+    """
 
     def __init__(
         self,
@@ -214,14 +245,23 @@ class Aperture:
         ledger: TraceLedger | None = None,
         selector: PolicySelector | None = None,
         engine: CurationEngine | None = None,
+        store: Any = None,
+        persist: str | None = None,
     ) -> None:
-        self.model = model if model is not None else SyntheticGateway()
+        self.model = _resolve_model(model)
         self.ledger = ledger
         self.selector: PolicySelector = selector if selector is not None else HeuristicSelector()
         self.engine = engine if engine is not None else CurationEngine()
-        from aperture.store import SpanStore
+        if store is not None:
+            self.store = store
+        elif persist is not None:
+            from aperture.store import SqliteSpanStore
 
-        self.store = SpanStore()
+            self.store = SqliteSpanStore(persist)
+        else:
+            from aperture.store import SpanStore
+
+            self.store = SpanStore()
 
     def describe_model(self) -> tuple[str, str, str]:
         describe = getattr(self.model, "describe", None)
@@ -245,6 +285,19 @@ class Aperture:
             return agent_loop(sess)
 
 
+def _resolve_model(model: Any) -> Any:
+    """Model resolution (P1): a model string selects the LiteLLM gateway; any
+    object with `.complete(window)` passes through; None -> synthetic gateway
+    (deterministic, offline, CI-friendly)."""
+    if model is None:
+        return SyntheticGateway()
+    if isinstance(model, str):
+        from aperture.models.litellm_gateway import LiteLLMGateway
+
+        return LiteLLMGateway(model)
+    return model
+
+
 def wrap(
     agent_loop: Callable[[Session], Any],
     *,
@@ -253,7 +306,8 @@ def wrap(
     selector: PolicySelector | None = None,
     session_id: str = "session-0",
     token_budget: int = 32768,
+    persist: str | None = None,
 ) -> Any:
     """Module-level entry point (spec 7.4: `aperture.wrap(agent_loop)`)."""
-    rt = Aperture(model=model, ledger=ledger, selector=selector)
+    rt = Aperture(model=model, ledger=ledger, selector=selector, persist=persist)
     return rt.wrap(agent_loop, session_id=session_id, token_budget=token_budget)

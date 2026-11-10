@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from aperture.interfaces import PlannedOp
+from aperture.protection import ProtectedClasses
 from aperture.session import (
     SPAN_SUMMARY,
     Features,
@@ -22,18 +23,27 @@ from aperture.session import (
 )
 
 
-def enforce_guardrail(window: Window, diff: WindowDiff) -> WindowDiff:
-    """Veto drops of pinned or protected spans (spec 7.2 step 2).
+def enforce_guardrail(
+    window: Window,
+    diff: WindowDiff,
+    protected: ProtectedClasses | None = None,
+) -> WindowDiff:
+    """Veto drops of pinned, protected, or protected-CLASS spans (spec 7.2 step 2).
 
     The guardrail is a property of the engine, not of individual operators:
     even a buggy or adversarial operator cannot silently destroy protected
-    content. Vetoed drops are removed from the diff; surviving (retained)
-    spans keep the window safe.
+    content. Class-level protection (AG2 groundwork) covers spans whose class
+    is registered - e.g. `constraint` - even when their flags are unset.
+    Vetoed drops are removed from the diff; vetoed spans become probe targets
+    (prove they survived).
     """
+    pc = protected if protected is not None else ProtectedClasses()
     vetoed: set[str] = set()
     for dropped in diff.dropped_spans:
         span = window.find(dropped.span_id)
-        if span is not None and (span.pinned or span.protected):
+        if span is None:
+            continue
+        if span.pinned or span.protected or pc.is_protected(span.span_class):
             vetoed.add(dropped.span_id)
     if not vetoed:
         return diff
@@ -73,13 +83,18 @@ def apply_diff(window: Window, diff: WindowDiff) -> Window:
 class CurationEngine:
     """Executes operator plans; owns the guardrail (spec 7.1)."""
 
-    def __init__(self, registry: dict[str, object] | None = None) -> None:
+    def __init__(
+        self,
+        registry: dict[str, object] | None = None,
+        protected_classes: ProtectedClasses | None = None,
+    ) -> None:
         # registry maps op name -> Operator; imported lazily to avoid cycles.
         if registry is None:
             from aperture import operators as ops_module
 
             registry = ops_module.registry()
         self._registry = registry
+        self.protected_classes = protected_classes or ProtectedClasses()
 
     def compose(
         self,
@@ -96,7 +111,7 @@ class CurationEngine:
             op = self._registry[planned.op]
             before_head = current.head_fingerprint()
             diff = op.apply(current, ctx, dict(planned.params))
-            diff = enforce_guardrail(current, diff)
+            diff = enforce_guardrail(current, diff, self.protected_classes)
             current = apply_diff(current, diff)
             after_head = current.head_fingerprint()
             if diff.cache_head_unchanged and before_head != after_head:

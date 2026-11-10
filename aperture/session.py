@@ -105,10 +105,57 @@ class Window:
     def clone(self) -> Window:
         return Window(token_budget=self.token_budget, spans=list(self.spans), step=self.step)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialization for stores and the benchmark (spans keep all flags)."""
+        return {
+            "token_budget": self.token_budget,
+            "step": self.step,
+            "spans": [
+                {
+                    "span_id": s.span_id,
+                    "span_class": s.span_class,
+                    "content": s.content,
+                    "created_step": s.created_step,
+                    "pinned": s.pinned,
+                    "protected": s.protected,
+                    "cache_head": s.cache_head,
+                    "summary_of": list(s.summary_of),
+                    "meta": dict(s.meta),
+                }
+                for s in self.spans
+            ],
+        }
+
+    @staticmethod
+    def from_dict(payload: dict[str, Any]) -> Window:
+        spans = [
+            Span(
+                span_id=s["span_id"],
+                span_class=s["span_class"],
+                content=s["content"],
+                created_step=s.get("created_step", 0),
+                pinned=s.get("pinned", False),
+                protected=s.get("protected", False),
+                cache_head=s.get("cache_head", False),
+                summary_of=tuple(s.get("summary_of", ())),
+                meta=dict(s.get("meta", {})),
+            )
+            for s in payload.get("spans", [])
+        ]
+        return Window(
+            token_budget=payload.get("token_budget", 0), spans=spans, step=payload.get("step", 0)
+        )
+
 
 @dataclass(frozen=True)
 class Features:
-    """Selector inputs, one per model call (spec 7.2 step 1; Appendix A `features`)."""
+    """Selector inputs, one per model call (spec 7.2 step 1; Appendix A `features`).
+
+    The trailing `archive` handle is a runtime-side field for archive-backed
+    operators (semantic_retrieval): it is injected by the Session, never
+    serialized into the trace (see `_features_dict`), and defaults to None so
+    features stay a pure, replayable six-field vector everywhere else.
+    """
 
     budget_used_frac: float
     task_phase: str
@@ -116,6 +163,7 @@ class Features:
     redundancy_score: float
     drift_score: float
     prefix_hash: str
+    archive: Any = None  # ArchiveView handle; excluded from the trace schema
 
 
 SessionView = Features  # the Agent Interface hands the engine a SessionView

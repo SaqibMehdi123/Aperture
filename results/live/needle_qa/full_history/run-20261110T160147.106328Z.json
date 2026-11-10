@@ -1,0 +1,46 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arm": "full_history",
+    "benchmark": "needle_qa",
+    "git_hash": "fe4473b3956fd93852d0df4d45fe19b6c0eafb13",
+    "model_ids": [
+      "openai/gemini-3.1-flash-lite-preview"
+    ],
+    "notes": {
+      "grader": "grade_live (tolerant phrasing)",
+      "model_string": "openai/gemini-3.1-flash-lite-preview",
+      "provider": "gemini",
+      "suite": "deterministic task suite, real gateway"
+    },
+    "price_list": "gemini-free-tier",
+    "seeds": [
+      0
+    ],
+    "started_at": "2026-11-10T16:06:11.207+00:00"
+  },
+  "per_seed": [
+    {
+      "bytes_dropped": 0,
+      "cache_hit_rate": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 18,
+      "calls": 18,
+      "cost_usd": 0.0,
+      "family": "needle_qa",
+      "input_tokens": 24275,
+      "output_tokens": 382,
+      "probes_failed": 0,
+      "seed": 0,
+      "spans_dropped": 0,
+      "success": true,
+      "tokens": 24275
+    }
+  ],
+  "summary": {
+    "n_tasks": 1,
+    "success_rate": 1.0,
+    "total_cost_usd": 0.0,
+    "total_tokens": 24275
+  }
+}

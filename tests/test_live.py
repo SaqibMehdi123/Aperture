@@ -12,6 +12,7 @@ from eval.live import (
     _run_arm_live,
     grade_live,
     is_rate_limit,
+    is_retryable,
     plan_matrix,
     summarize_live,
 )
@@ -61,6 +62,29 @@ class TestIsRateLimit:
         assert is_rate_limit(ValueError("x")) is False
 
 
+class TestIsRetryable:
+    def test_throttling(self) -> None:
+        assert is_retryable(RateLimitError("x")) is True
+
+    def test_transient_5xx_by_status(self) -> None:
+        for status in (500, 502, 503, 504):
+            err = ServerError("x")
+            err.status_code = status  # type: ignore[attr-defined]
+            assert is_retryable(err) is True
+
+    def test_transient_5xx_by_name(self) -> None:
+        class ServiceUnavailableError(Exception):
+            pass
+
+        assert is_retryable(ServiceUnavailableError("x")) is True
+
+    def test_hard_failures_not_retryable(self) -> None:
+        err = ServerError("x")
+        err.status_code = 401  # type: ignore[attr-defined]
+        assert is_retryable(err) is False
+        assert is_retryable(ValueError("x")) is False
+
+
 class TestRetryingGateway:
     def test_immediate_success(self) -> None:
         gw = FlakyGateway([])
@@ -84,6 +108,14 @@ class TestRetryingGateway:
             assert gw.calls == 1 and gw.sleeps == []
             return
         raise AssertionError("expected ServerError")
+
+    def test_503_is_retried(self) -> None:
+        err = ServerError("overloaded")
+        err.status_code = 503  # type: ignore[attr-defined]
+        gw = FlakyGateway([err])
+        wrapped = RetryingGateway(gw, sleep=gw.sleeps.append)
+        assert wrapped.complete(None) == "ok"
+        assert gw.calls == 2 and gw.sleeps == [5.0]
 
     def test_exhaustion_raises(self) -> None:
         gw = FlakyGateway([RateLimitError("x")] * 10)

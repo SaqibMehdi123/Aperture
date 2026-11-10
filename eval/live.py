@@ -56,8 +56,21 @@ _APPROVAL_RE = re.compile(r"(has been|is|was) approved|approved\.?$", re.IGNOREC
 _FLOAT_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
+def is_retryable(exc: Exception) -> bool:
+    """Whether a provider exception is transient: throttling (429) or a 5xx
+    blip. Non-retryable failures (auth, region, missing model) surface
+    immediately."""
+    if getattr(exc, "status_code", None) in RETRYABLE_STATUS:
+        return True
+    name = type(exc).__name__
+    return any(k in name for k in ("RateLimit", "ServiceUnavailable", "InternalServerError"))
+
+
 def is_rate_limit(exc: Exception) -> bool:
-    """Whether a provider exception is a throttling signal worth retrying."""
+    """Backward-compatible alias: 429-style throttling only."""
     if getattr(exc, "status_code", None) == 429:
         return True
     return "RateLimit" in type(exc).__name__
@@ -89,12 +102,12 @@ class RetryingGateway:
             try:
                 return self._inner.complete(window)
             except Exception as exc:
-                if not is_rate_limit(exc) or attempt == self._attempts - 1:
+                if not is_retryable(exc) or attempt == self._attempts - 1:
                     raise
                 wait = self._base_s * (2**attempt)
                 print(
-                    f"[retry] rate limited; backing off {wait:.0f}s "
-                    f"(attempt {attempt + 1}/{self._attempts})"
+                    f"[retry] transient provider error ({type(exc).__name__}); "
+                    f"backing off {wait:.0f}s (attempt {attempt + 1}/{self._attempts})"
                 )
                 self._sleep(wait)
 

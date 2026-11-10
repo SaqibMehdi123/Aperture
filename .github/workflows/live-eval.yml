@@ -54,6 +54,7 @@ jobs:
             --families "${{ github.event.inputs.families }}" \
             --seeds "${{ github.event.inputs.seeds }}"
       - name: Upload results
+        if: always()  # partial results survive a provider-side failure
         uses: actions/upload-artifact@v4
         with:
           name: live-results-${{ github.event.inputs.provider }}

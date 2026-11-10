@@ -1,4 +1,4 @@
-"""Runtime facade: toy loop wrapped end to end (P0 weeks 1-2 exit criterion)."""
+"""Runtime facade: a raw agent loop wrapped end to end, trace written."""
 
 import aperture
 from aperture.models.gateway import SyntheticGateway

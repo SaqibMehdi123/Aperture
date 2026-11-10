@@ -73,6 +73,15 @@ class TestPickModel:
         models = ["m1", "m2", "m3", "m4", "m5"]
         assert pick_models(models, ("m*",), limit=3) == ["m1", "m2", "m3"]
 
+    def test_pick_models_skips_non_text_modalities(self) -> None:
+        # image variants reject text-only completions; never pick them
+        models = [
+            "gemini-2.5-flash-image",
+            "gemini-3.8-flash",
+            "gemini-2.0-flash-live",
+        ]
+        assert pick_models(models, ("gemini-*-flash*",)) == ["gemini-3.8-flash"]
+
 
 @pytest.mark.parametrize(
     "status,expected",

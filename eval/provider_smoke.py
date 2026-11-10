@@ -40,6 +40,8 @@ OPENAI_COMPAT_BASE_URLS: dict[str, str] = {
     "groq": "https://api.groq.com/openai/v1",
     "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
 }
+# image/audio/embedding variants reject text-only completions
+EXCLUDE_SUBSTRINGS = ("image", "audio", "tts", "embedding", "imagen", "veo", "live")
 PROBE_PROMPT = "Reply with exactly: OK"
 
 
@@ -77,7 +79,8 @@ def pick_models(
     out: list[str] = []
     for pref in preferences:
         for model_id in normalized:
-            if fnmatch.fnmatch(model_id, pref) and model_id not in out:
+            excluded = any(x in model_id for x in EXCLUDE_SUBSTRINGS)
+            if fnmatch.fnmatch(model_id, pref) and not excluded and model_id not in out:
                 out.append(model_id)
                 if len(out) >= limit:
                     return out

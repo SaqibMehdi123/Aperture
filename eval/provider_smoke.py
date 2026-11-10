@@ -43,6 +43,10 @@ OPENAI_COMPAT_BASE_URLS: dict[str, str] = {
 # image/audio/embedding variants reject text-only completions
 EXCLUDE_SUBSTRINGS = ("image", "audio", "tts", "embedding", "imagen", "veo", "live")
 PROBE_PROMPT = "Reply with exactly: OK"
+API_KEY_ENV: dict[str, str] = {
+    "groq": "GROQ_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+}
 
 
 def _normalize(model_id: str) -> str:
@@ -87,6 +91,20 @@ def pick_models(
     return out
 
 
+def gateway_route(provider: str, model: str) -> tuple[str, dict[str, Any]]:
+    """LiteLLM model string + extra completion kwargs for one provider.
+
+    Groq goes through litellm's native provider; Gemini goes through its
+    OpenAI-compat endpoint (AI Studio's new key format authenticates as
+    Bearer there, and the native route serves a stale model catalog).
+    """
+    if provider == "groq":
+        return f"groq/{model}", {}
+    if provider == "gemini":
+        return f"openai/{model}", {"base_url": OPENAI_COMPAT_BASE_URLS["gemini"]}
+    raise ValueError(f"unknown provider {provider!r}; choose one of {sorted(API_KEY_ENV)}")
+
+
 def _list_models(provider: str, api_key: str) -> list[str]:
     from openai import OpenAI
 
@@ -98,19 +116,36 @@ def _list_models(provider: str, api_key: str) -> list[str]:
     return [m.id for m in client.models.list()]
 
 
+def verify_model(provider: str, api_key: str, candidates: list[str]) -> str | None:
+    """First candidate that actually answers (or is merely rate limited).
+
+    Catalogs list retired ids; one tiny completion per candidate keeps live
+    runs from committing to a model that 404s. Returns None if nothing works.
+    """
+    fallback: str | None = None
+    for model in candidates:
+        try:
+            _probe(provider, model, api_key)
+            return model
+        except Exception as exc:  # noqa: BLE001 - classification is the point
+            kind = classify(exc)
+            if kind == "missing_model":
+                print(f"[verify] {provider}/{model}: not served, trying next candidate")
+                continue
+            if kind == "rate_limited":
+                print(f"[verify] {provider}/{model}: rate limited (key authenticated)")
+                fallback = fallback or model
+                continue
+            print(f"[verify] {provider}/{model}: {kind}: {str(exc)[:160]}")
+            continue
+    return fallback
+
+
 def _probe(provider: str, model: str, api_key: str) -> dict[str, Any]:
     from aperture.models.litellm_gateway import LiteLLMGateway
     from aperture.session import Span, Window
 
-    if provider == "gemini":
-        # AI Studio's new AQ.-format keys authenticate as Bearer on the
-        # OpenAI-compat route; litellm's native v1beta route rejects them and
-        # serves a model list that disagrees with the compat catalog.
-        model_string = f"openai/{model}"
-        extra: dict[str, Any] = {"base_url": OPENAI_COMPAT_BASE_URLS["gemini"]}
-    else:
-        model_string = f"{provider}/{model}"
-        extra = {}
+    model_string, extra = gateway_route(provider, model)
     gateway = LiteLLMGateway(model_string, api_key=api_key, timeout_s=60, **extra)
     window = Window(
         token_budget=10_000,

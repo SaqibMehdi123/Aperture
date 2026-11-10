@@ -1,0 +1,61 @@
+name: live-eval
+
+# Real-model arm comparison (eval/live.py): runs the deterministic task
+# suite through a live provider gateway and uploads the append-only result
+# manifests. Manual trigger only - free-tier budgets are finite.
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "Provider to run against"
+        required: true
+        default: "groq"
+        type: choice
+        options:
+          - groq
+          - gemini
+      arms:
+        description: "Comma-separated arms"
+        required: false
+        default: "full_history,keep_recent_tuned,aperture_fixed"
+      families:
+        description: "Comma-separated task families"
+        required: false
+        default: "needle_qa,policy_compliance,aggregate_batch"
+      seeds:
+        description: "Comma-separated seeds"
+        required: false
+        default: "0,1"
+
+concurrency:
+  group: live-eval-${{ github.event.inputs.provider }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (with litellm extra)
+        run: pip install -e .[litellm]
+      - name: Run live arm comparison
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python -m eval.live \
+            --provider "${{ github.event.inputs.provider }}" \
+            --arms "${{ github.event.inputs.arms }}" \
+            --families "${{ github.event.inputs.families }}" \
+            --seeds "${{ github.event.inputs.seeds }}"
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-results-${{ github.event.inputs.provider }}
+          path: results/live/
+          if-no-files-found: error

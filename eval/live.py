@@ -1,0 +1,248 @@
+"""Live real-model arm runs - the P2 real-model half (spec Table 6 P2).
+
+Same uniform loop, same arms, same append-only results tree as the offline
+comparison (eval.compare) - but the deterministic grading models are replaced
+by a real provider gateway. Everything is measured, nothing is copied.
+
+    GROQ_API_KEY=...    python -m eval.live --provider groq
+    GEMINI_API_KEY=...  python -m eval.live --provider gemini --seeds 0 \
+        --arms full_history,aperture_fixed
+
+Grading is tolerant to phrasing (a real model may answer "The access code is
+1234." where the synthetic model answers "1234"); the graded quantity is
+unchanged: exact value, exact sum, compliant refusal. The default subset
+(3 arms x 3 families x 2 seeds ~= 18 tasks, a few hundred completions) fits
+comfortably inside the Groq free tier and a smaller Gemini dispatch fits
+inside its tighter free limits. Every call goes out with litellm retries on
+429s.
+
+Results land in results/live/<family>/<arm>/run-<stamp>.json plus a stamped
+summary with the G1 headline (token savings at equal-or-better success vs
+full-history, now measured on a real model). The network path only runs
+under `python -m`; importing this module stays offline-safe.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from eval.arms import make_aperture
+from eval.harness import current_git_hash, run_arm
+from eval.provider_smoke import (
+    API_KEY_ENV,
+    PREFERRED,
+    _list_models,
+    gateway_route,
+    pick_models,
+)
+from eval.tasks import EVAL_SEEDS, FAMILIES, run_task
+
+RESULTS_ROOT = Path(__file__).resolve().parents[1] / "results" / "live"
+
+DEFAULT_LIVE_ARMS: tuple[str, ...] = ("full_history", "keep_recent_tuned", "aperture_fixed")
+
+_REFUSAL_RE = re.compile(
+    r"cannot approve|can'?t approve|unable to approve|must be refused|must refuse|will not approve",
+    re.IGNORECASE,
+)
+_APPROVAL_RE = re.compile(r"(has been|is|was) approved|approved\.?$", re.IGNORECASE)
+_FLOAT_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def grade_live(family: str, plan, reply: str) -> bool:
+    """Tolerant grading for real models: same quantities as eval.tasks.grade,
+    but robust to phrasing ("The access code is 1234." still passes)."""
+    text = reply.strip()
+    if family == "needle_qa":
+        return re.search(rf"\b{re.escape(plan.expected)}\b", text) is not None
+    if family == "aggregate_batch":
+        target = float(plan.expected)
+        return any(abs(float(x) - target) < 0.05 for x in _FLOAT_RE.findall(text))
+    if family == "policy_compliance":
+        return bool(_REFUSAL_RE.search(text)) and not bool(_APPROVAL_RE.search(text))
+    raise ValueError(f"unknown family {family!r}")
+
+
+def plan_matrix(arms: tuple[str, ...], families: tuple[str, ...], seeds: tuple[int, ...]):
+    """Deterministic execution order: family -> arm -> seed."""
+    return [(f, a, s) for f in families for a in arms for s in seeds]
+
+
+def summarize_live(table: dict[str, dict[str, dict[str, Any]]]) -> dict[str, dict[str, Any]]:
+    """Add savings_frac + success parity vs full_history per (arm, family).
+
+    `table` maps arm -> family -> {"success_rate": float, "input_tokens": int}.
+    """
+    full = table.get("full_history", {})
+    out: dict[str, dict[str, Any]] = {}
+    for arm, fams in table.items():
+        out[arm] = {}
+        for family, agg in fams.items():
+            base = full.get(family, {}).get("input_tokens", 0)
+            row = dict(agg)
+            row["savings_frac"] = round(1.0 - agg["input_tokens"] / base, 4) if base else 0.0
+            row["success_equal_or_better"] = (
+                agg["success_rate"] >= full.get(family, {}).get("success_rate", 1.0) - 1e-9
+                if base
+                else False
+            )
+            out[arm][family] = row
+    return out
+
+
+def resolve_gateway(provider: str, model: str | None, api_key: str):
+    """Pick a model from the key's catalog (unless overridden), verify it with
+    one tiny completion, and build the Aperture gateway for it.
+
+    Returns (gateway, model_id, model_string, price_list).
+    """
+    from aperture.models.litellm_gateway import LiteLLMGateway
+
+    from eval.provider_smoke import verify_model
+
+    if model:
+        model_id = model
+    else:
+        models = _list_models(provider, api_key)
+        model_id = verify_model(provider, api_key, pick_models(models, PREFERRED[provider]))
+        if model_id is None:
+            raise RuntimeError(f"no working chat model in the {provider} catalog")
+    model_string, extra = gateway_route(provider, model_id)
+    gateway = LiteLLMGateway(
+        model_string, api_key=api_key, timeout_s=90.0, num_retries=4, **extra
+    )
+    return gateway, model_id, model_string, f"{provider}-free-tier"
+
+
+def live_compare(
+    provider: str,
+    arms: tuple[str, ...] = DEFAULT_LIVE_ARMS,
+    families: tuple[str, ...] = FAMILIES,
+    seeds: tuple[int, ...] = EVAL_SEEDS[:2],
+    model: str | None = None,
+    results_root: str | Path = RESULTS_ROOT,
+    pause_s: float = 1.0,
+) -> dict[str, Any]:
+    """Run arms x families x seeds against a real provider; write results."""
+    api_key = _require_key(provider)
+    gateway, model_id, model_string, price_list = resolve_gateway(provider, model, api_key)
+    print(f"[live] provider={provider} model={model_id} price_list={price_list}")
+
+    per_arm: dict[str, dict[str, dict[str, Any]]] = {}
+    matrix = plan_matrix(arms, families, seeds)
+    for family in families:
+        for arm in arms:
+            arm_seeds = [s for f, a, s in matrix if f == family and a == arm]
+
+            def task_fn(m, seed, _arm=arm, _family=family):
+                stats = run_task(_family, seed, make_aperture(_arm, m), grader=grade_live)
+                return stats
+
+            payload = run_arm(
+                arm,
+                family,
+                task_fn,
+                lambda: gateway,
+                seeds=arm_seeds,
+                results_root=results_root,
+                price_list=price_list,
+                notes={
+                    "provider": provider,
+                    "model_string": model_string,
+                    "grader": "grade_live (tolerant phrasing)",
+                    "suite": "deterministic task suite, real gateway",
+                },
+            )
+            rows = payload["per_seed"]
+            per_arm.setdefault(arm, {})[family] = _aggregate(rows)
+            time.sleep(pause_s)
+
+    summary = {
+        "manifest": {
+            "git_hash": current_git_hash(),
+            "provider": provider,
+            "model_id": model_id,
+            "price_list": price_list,
+            "arms": list(arms),
+            "families": list(families),
+            "seeds": list(seeds),
+            "grader": "grade_live (tolerant phrasing)",
+            "ran_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        },
+        "arms": summarize_live(per_arm),
+    }
+    out_dir = Path(results_root)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    out = out_dir / f"summary-{stamp}.json"
+    if out.exists():
+        raise RuntimeError(f"result collision: {out} exists")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    summary["path"] = str(out)
+    return summary
+
+
+def _aggregate(rows: list[dict]) -> dict:
+    n = max(1, len(rows))
+    hits = sum(r.get("cache_hits", 0) for r in rows)
+    misses = sum(r.get("cache_misses", 0) for r in rows)
+    return {
+        "n_tasks": len(rows),
+        "success_rate": round(sum(1 for r in rows if r["success"]) / n, 4),
+        "input_tokens": sum(r["input_tokens"] for r in rows),
+        "output_tokens": sum(r.get("output_tokens", 0) for r in rows),
+        "cost_usd": round(sum(r["cost_usd"] for r in rows), 6),
+        "cache_hit_rate": round(hits / max(1, hits + misses), 4),
+        "probes_failed": sum(r.get("probes_failed", 0) for r in rows),
+        "calls": sum(r.get("calls", 0) for r in rows),
+    }
+
+
+def _require_key(provider: str) -> str:
+    import os
+
+    env = API_KEY_ENV.get(provider)
+    if env is None:
+        raise SystemExit(f"unknown provider {provider!r}; choose one of {sorted(API_KEY_ENV)}")
+    key = os.environ.get(env)
+    if not key:
+        raise SystemExit(f"{env} is not set; export the provider key first")
+    return key
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Live real-model arm comparison")
+    parser.add_argument("--provider", required=True, choices=sorted(API_KEY_ENV))
+    parser.add_argument("--model", default=None, help="override the catalog-picked model id")
+    parser.add_argument("--arms", default=",".join(DEFAULT_LIVE_ARMS))
+    parser.add_argument("--families", default=",".join(FAMILIES))
+    parser.add_argument("--seeds", default="0,1")
+    parser.add_argument("--pause-s", type=float, default=1.0)
+    args = parser.parse_args()
+
+    summary = live_compare(
+        provider=args.provider,
+        arms=tuple(s.strip() for s in args.arms.split(",") if s.strip()),
+        families=tuple(s.strip() for s in args.families.split(",") if s.strip()),
+        seeds=tuple(int(s) for s in args.seeds.split(",") if s.strip()),
+        model=args.model,
+        pause_s=args.pause_s,
+    )
+    print("| arm | " + " | ".join(next(iter(summary["arms"].values())).keys()) + " |")
+    for arm, fams in summary["arms"].items():
+        cells = " | ".join(
+            f"{f['input_tokens']:,} tok ({f['savings_frac']:.0%}), acc {f['success_rate']:.2f}"
+            for f in fams.values()
+        )
+        print(f"| {arm} | {cells} |")
+    print(f"manifest: {summary['path']}")
+
+
+if __name__ == "__main__":
+    main()

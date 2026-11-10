@@ -89,3 +89,56 @@ class TestPickModel:
 )
 def test_classify_parametrized(status: int, expected: str) -> None:
     assert classify(FakeAPIError(status, "x")) == expected
+
+
+class TestVerifyModel:
+    @pytest.fixture()
+    def probes(self, monkeypatch):
+        calls: list[str] = []
+
+        def set_behavior(fn):
+            monkeypatch.setattr("eval.provider_smoke._probe", fn)
+
+        set_behavior(lambda provider, model, key: calls.append(model) or {})
+        return calls, set_behavior
+
+    def test_first_working_candidate_wins(self, probes) -> None:
+        calls, _ = probes
+        from eval.provider_smoke import verify_model
+
+        assert verify_model("groq", "k", ["a", "b"]) == "a"
+        assert calls == ["a"]
+
+    def test_retired_candidate_is_skipped(self, probes) -> None:
+        calls, set_behavior = probes
+        from eval.provider_smoke import verify_model
+
+        def fail_404(provider, model, key):
+            calls.append(model)
+            if model == "a":
+                raise FakeAPIError(404, "model not found")
+            return {}
+
+        set_behavior(fail_404)
+        assert verify_model("groq", "k", ["a", "b"]) == "b"
+        assert calls == ["a", "b"]
+
+    def test_rate_limit_is_last_resort_not_a_skip(self, probes) -> None:
+        calls, set_behavior = probes
+        from eval.provider_smoke import verify_model
+
+        def rate_limited(provider, model, key):
+            calls.append(model)
+            raise FakeAPIError(429, "rate limited")
+
+        set_behavior(rate_limited)
+        # keeps looking for a working one; falls back to the first 429
+        assert verify_model("groq", "k", ["a", "b"]) == "a"
+        assert calls == ["a", "b"]
+
+    def test_no_usable_candidate_returns_none(self, probes) -> None:
+        _, set_behavior = probes
+        from eval.provider_smoke import verify_model
+
+        set_behavior(lambda p, m, k: (_ for _ in ()).throw(FakeAPIError(401, "bad key")))
+        assert verify_model("groq", "k", ["a"]) is None

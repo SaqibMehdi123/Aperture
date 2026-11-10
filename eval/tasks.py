@@ -199,8 +199,30 @@ def build_task(family: str, seed: int) -> TaskPlan:
 # configuration differs. One retrieval retry on "unknown" (the archive is
 # populated by drops, so this is arm-fair by construction).
 # --------------------------------------------------------------------------
-def run_task(family: str, seed: int, make_ap, session_id: str | None = None) -> dict:
-    """Run one task under an Aperture factory; return stats + success."""
+def _is_unknown(reply: str) -> bool:
+    """Whether a reply means 'the evidence is not in my window' - the uniform
+    retrieval-retry trigger. Tolerant to phrasing; the synthetic models reply
+    exactly 'unknown', real models may phrase it differently."""
+    return reply.strip().lower().rstrip(".!") in (
+        "unknown",
+        "i don't know",
+        "i do not know",
+        "i cannot tell",
+        "not in the window",
+    )
+
+
+def run_task(
+    family: str,
+    seed: int,
+    make_ap,
+    session_id: str | None = None,
+    grader=None,
+) -> dict:
+    """Run one task under an Aperture factory; return stats + success.
+
+    `grader(family, plan, reply) -> bool` overrides the default exact grading
+    (eval.live passes a phrasing-tolerant grader for real models)."""
     from aperture import Aperture
 
     if not isinstance(make_ap, Aperture) and callable(make_ap):
@@ -228,7 +250,7 @@ def run_task(family: str, seed: int, make_ap, session_id: str | None = None) -> 
             chat.send(content, role=role)
 
         reply = chat.send(plan.question)
-        if reply.strip().lower() == "unknown":
+        if _is_unknown(reply):
             # The uniform retrieval retry: search the archive channel that
             # carries this family's evidence (a real agent does the same).
             # Each hit is ingested as its own span - merged re-admission
@@ -241,7 +263,7 @@ def run_task(family: str, seed: int, make_ap, session_id: str | None = None) -> 
                 reply = chat.send(plan.question)
         stats = dict(chat.stats())
 
-    stats["success"] = grade(family, plan, reply)
+    stats["success"] = (grader or grade)(family, plan, reply)
     stats["tokens"] = stats["input_tokens"]  # harness-compat total-token field
     stats["family"] = family
     stats["seed"] = seed

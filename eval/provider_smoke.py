@@ -65,7 +65,8 @@ def classify(exc: Exception) -> str:
 
 def pick_model(models: list[str], preferences: tuple[str, ...]) -> str | None:
     """First available model matching the preference order (globs allowed)."""
-    return pick_models(models, preferences, limit=1)[0] if models else None
+    got = pick_models(models, preferences, limit=1)
+    return got[0] if got else None
 
 
 def pick_models(

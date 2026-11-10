@@ -165,7 +165,7 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 - report, don't crash the job
             kind = classify(exc)
             label = "RATE_LIMITED (key authenticated)" if kind == "rate_limited" else "FAIL"
-            print(f"[{provider}] {label}: {kind}: {str(exc)[:140]}")
+            print(f"[{provider}] {label}: {kind}: {str(exc)[:400]}")
             if kind != "rate_limited":
                 failures.append(f"{provider}:{kind}")
 

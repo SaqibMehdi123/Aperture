@@ -5,7 +5,7 @@
 [![CI](https://github.com/SaqibMehdi123/Aperture/actions/workflows/ci.yml/badge.svg)](https://github.com/SaqibMehdi123/Aperture/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)
-![Version](https://img.shields.io/badge/version-0.2.1-green.svg)
+![Version](https://img.shields.io/badge/version-0.3.0-green.svg)
 ![Code style](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)
 
 ## Overview
@@ -50,6 +50,7 @@ Every model call produces one versioned trace line: the features the selector sa
 - [Architecture](#architecture)
 - [Tech stack](#tech-stack)
 - [Testing and linting](#testing-and-linting)
+- [Results — P2 offline benchmark](#results--p2-offline-benchmark)
 - [Research and reproducibility](#research-and-reproducibility)
 - [Roadmap](#roadmap)
 - [Known limitations](#known-limitations)
@@ -77,11 +78,11 @@ Prerequisites: Python **3.10–3.12** and `pip`. No API keys needed to start —
 git clone https://github.com/SaqibMehdi123/Aperture.git
 cd Aperture
 pip install -e ".[dev]"       # runtime + pytest + ruff
-pytest -q                     # 145 tests, all green, no keys required
+pytest -q                     # 171 tests, all green, no keys required
 python examples/quickstart.py # see the loop run end to end
 ```
 
-Expected: `pytest` prints `145 passed` in under a second; the quickstart prints two synthetic replies plus a `stats` dict.
+Expected: `pytest` prints `171 passed` in about a second; the quickstart prints two synthetic replies plus a `stats` dict.
 
 To use a real model, install the optional LiteLLM extra and pass a model string:
 
@@ -229,9 +230,9 @@ aperture/            installable runtime package
 └── trace/           ledger, survival probes, replay engine
 adapters/            framework adapters (raw loop, LangGraph)
 bench/               CurateBench trace schema (curatebench/trace@v2)
-eval/                8-arm harness + replication probes
+eval/                task suite + selector tuning + arm comparison (8-arm harness)
 examples/            quickstart.py, toy_loop.py
-tests/               145 pytest tests
+tests/               171 pytest tests
 docs/                SPEC.md (dossier), research notes
 results/             append-only probe snapshots + eval runs (real data, see results/README.md)
 ```
@@ -244,16 +245,40 @@ results/             append-only probe snapshots + eval runs (real data, see res
 | LLM access | LiteLLM (optional extra) | One model string for any provider; normalized usage/cache telemetry |
 | Framework adapters | LangGraph (duck-typed), raw loops | No hard framework dependency |
 | Persistence | SQLite (stdlib), in-memory default | Durable snapshots + archive with zero setup |
-| Quality | pytest, ruff, GitHub Actions | 145 tests on all supported Python versions |
+| Quality | pytest, ruff, GitHub Actions | 171 tests on all supported Python versions |
 
 ## Testing and linting
 
 ```bash
 pytest -q                    # full suite, no API keys required
 pytest tests/test_integration_p1.py -q   # the savings/safety integration run
+python -m eval.tune          # re-run the selector sweep (append-only manifest)
+python -m eval.compare       # re-run the 6-arm comparison (append-only results)
 ruff check .                 # lint (must pass before merge)
 ruff format --check .        # formatting
 ```
+
+## Results — P2 offline benchmark
+
+Six arms (of the eight registered; provider-native needs an API key, the learned bandit lands in P3) ran the identical agent loop over three deterministic task families — needle QA (fact retention), policy compliance (constraint survival), and batch aggregation (recent-evidence retention) — 20 tasks each, graded exactly. Every arm used the same store, archive, and grading; only selection differed.
+
+| Arm | Success | needle_qa | policy_compliance | aggregate_batch |
+|---|---|---|---|---|
+| `full_history` | 1.00 | 474,308 tok | 484,816 tok | 277,170 tok |
+| `keep_recent_tuned` | 1.00 | −56% | −58% | −39% |
+| `threshold_edit_compact` | 1.00 | −51% | −57% | −52% |
+| `acon_always_compress` | **0.37** | −97% | −95% | −95% |
+| `headroom_proxy` | 1.00 | −68% | −69% | −53% |
+| `aperture_fixed` (shipped) | 1.00 | −56% | −58% | −39% |
+
+Read this table honestly:
+
+- **`acon_always_compress` is the cautionary result**: it saves 95%+ of tokens and fails 63% of tasks — compression without governance destroys the evidence tasks depend on. That is the failure mode the guardrail + archive + retrieval design exists to prevent, and why savings are only ever reported jointly with success.
+- **`aperture_fixed` — the tuned heuristic that ships as the `balanced` profile — holds 100% task success with 39–58% savings and 100% of curation decisions logged** (trace coverage 1.0 on every arm). G1 rehearsal: ≥30% savings at equal-or-better success, offline. It matches `keep_recent_tuned` exactly because this suite contains no duplicate spans — the tuned dedupe knob never fires here.
+- **`headroom_proxy` saves more than the shipped heuristic on this suite** (53–69%) by planning purely on tool load. Closing that gap with a learned selector is a concrete P3 target.
+- Tuning: the shipped point `{threshold: 0.5, keep_n: 6, dedupe_at: 0.2}` won a 48-config grid sweep on held-out training tasks at 53.1% savings vs full history with zero task and zero probe failures ([`eval/tune.py`](eval/tune.py), manifests in [`results/tuning/`](results/README.md)).
+
+These are synthetic-model figures on a deterministic suite — real-model AppWorld / tau2-bench runs are the remaining P2 item and need an API key.
 
 ## Research and reproducibility
 
@@ -267,7 +292,7 @@ ruff format --check .        # formatting
 pytest tests/test_integration_p1.py -v
 ```
 
-Real-model 8-arm evaluation on AppWorld / tau2-bench subsets starts in Phase P2; results will be written to the append-only [`results/`](results/README.md) tree with full manifests.
+Real-model 8-arm evaluation on AppWorld / tau2-bench subsets is the remaining Phase P2 item; results will land in the same append-only [`results/`](results/README.md) tree with full manifests.
 
 ## Roadmap
 
@@ -276,13 +301,17 @@ Phases and gates follow [`docs/SPEC.md`](docs/SPEC.md) Table 6.
 - [x] P0 — trace schema v1, eval harness, context-rot + ConstraintRot probes, toy loop end to end
 - [x] P1 — seven operators, LiteLLM gateway with cache telemetry, LangGraph adapter, SQLite store + archive, protected classes, `chat()` API
 - [ ] P2 — tuned fixed-heuristic selector, 8-arm harness on AppWorld/tau2 subsets, gate G1 (≥30% savings at equal accuracy)
+  - [x] tuned selector shipped as the default `balanced` profile (53.1% train-split savings; [`eval/tune.py`](eval/tune.py))
+  - [x] offline 6-arm comparison + G1 rehearsal passed (39–58% savings at equal success, 100% traced; [`eval/compare.py`](eval/compare.py))
+  - [ ] real-model AppWorld / tau2-bench runs (needs an LLM API key)
 - [ ] P3 — labelled traces, offline bandit selector, CurateBench artifact release, gate G2
 - [ ] P4 — advanced-gap features: cache-aware reward, decay alerts, online adaptation, context contracts, async scheduler (gate G3)
 - [ ] P5 — full comparative evaluation, observability dashboard, release, paper (gate G4)
 
 ## Known limitations
 
-- All published numbers so far are synthetic-gateway figures, not real-model benchmarks.
+- The [results table](#results--p2-offline-benchmark) is measured on the deterministic offline suite (synthetic grading models); formal G1 evidence requires real-model AppWorld / tau2-bench runs.
+- The offline suite contains no duplicate spans, so the tuned selector's dedupe knob never fires there; arms 4 (provider-native) and 8 (learned bandit) are excluded by design (API key / P3).
 - The selector is a tuned fixed heuristic; the learned bandit arrives in P3.
 - `semantic_retrieval` uses a lexical scorer; an embedder injection point exists but no embedding model ships.
 - The package is not yet on PyPI — install from source for now.

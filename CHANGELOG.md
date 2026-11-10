@@ -3,6 +3,45 @@
 All notable changes to Aperture are documented here. Format based on
 Keep a Changelog; versioning is SemVer.
 
+## [0.3.0] - Phase P2 (tuned selector + offline benchmark)
+
+### Added
+- **Deterministic task suite** (`eval/tasks.py`): three task families -
+  needle QA (fact retention), policy compliance (constraint survival), batch
+  aggregation (recent-evidence retention) - 20 eval tasks each plus a held-out
+  train split, exact programmatic grading, deterministic grading models, and
+  one uniform agent loop with an archive retrieval retry on "unknown".
+- **Offline selector tuner** (`python -m eval.tune`): 48-config grid sweep of
+  the heuristic knobs under hard constraints (zero task failures, zero probe
+  failures), objective = minimum cumulative input tokens; append-only
+  manifests in `results/tuning/`.
+- **Arm implementations** (`eval/arms.py`): re-measured ACON-style
+  always-compress and Headroom-proxy strategies inside the selector protocol,
+  plus the six offline arms; provider-native and learned arms excluded by
+  design (API key / P3).
+- **Comparison runner** (`python -m eval.compare`): 6 arms x 3 families x 20
+  tasks with per-task trace coverage; append-only per-run files and summary
+  in `results/compare/`.
+- Session stat `probes_failed` (per-call survival-probe failures).
+- `archive_search(..., span_class=...)` class filter on both stores, so a
+  tool-output query can rank tool evidence over chat turns.
+
+### Changed
+- **Tuned `balanced` profile shipped as default**
+  (`threshold=0.5, keep_n=6, dedupe_at=0.2`): 53.1% cumulative input-token
+  reduction vs full history on the train split at 100% task success and zero
+  probe failures (was 21.3% with the P0-era default).
+- `keep_recent(keep_n=0)` now drops all droppable spans (regression-fixed
+  `[:-0]` slicing); the guardrail still vetoes protected drops.
+- Task-loop retrieval re-admits each archived hit as its own span (merged
+  re-admission cross-contaminated aggregate sums).
+
+### Offline results (see README "Results")
+- `aperture_fixed`: 39-58% savings at 100% success, 100% of curation
+  decisions logged (G1 rehearsal, offline).
+- `acon_always_compress`: 95%+ savings at 0.37 success - the cautionary
+  result motivating guardrailed curation.
+
 ## [0.2.1] - P1 hardening
 
 ### Added

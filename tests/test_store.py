@@ -106,3 +106,16 @@ def test_window_serialization_roundtrip():
     assert w2.step == 7
     assert [s.span_id for s in w2.spans] == [s.span_id for s in w.spans]
     assert w2.spans[0].cache_head and not w2.spans[1].pinned
+
+
+def test_archive_search_filters_by_span_class():
+    """Class-filtered retrieval: a tool-output query must not return chat turns."""
+    store = SpanStore()
+    store.archive_put("s1", "conv", "conversation", "Log batch 1 now.", step=1, nbytes=16)
+    store.archive_put(
+        "s1", "data", "tool_result", "[batch 1] readings: 45.2 31.7 88.1", step=2, nbytes=32
+    )
+    hits = store.archive_search("s1", "batch 1", top_k=3, span_class="tool_result")
+    assert [h.span_id for h in hits] == ["data"]
+    # unfiltered search keeps the old behavior (both classes eligible)
+    assert len(store.archive_search("s1", "batch 1", top_k=3)) == 2

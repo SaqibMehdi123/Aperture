@@ -90,13 +90,18 @@ class SpanStore:
         return sorted(items, key=lambda a: a.step, reverse=True)[:k]
 
     def archive_search(
-        self, session_id: str, query: str, top_k: int = 3, min_score: float = 0.05
+        self,
+        session_id: str,
+        query: str,
+        top_k: int = 3,
+        min_score: float = 0.05,
+        span_class: str | None = None,
     ) -> list[ArchivedSpan]:
         qtokens = _tokenize(query)
         scored = [
             (_lexical_score(qtokens, a.content), a)
             for (sid, _), a in self._archive.items()
-            if sid == session_id
+            if sid == session_id and (span_class is None or a.span_class == span_class)
         ]
         scored = [(s, a) for s, a in scored if s >= min_score]
         scored.sort(key=lambda pair: (-pair[0], -pair[1].step))
@@ -179,10 +184,20 @@ class SqliteSpanStore(SpanStore):
         return sorted(self._archive_rows(session_id), key=lambda a: a.step, reverse=True)[:k]
 
     def archive_search(
-        self, session_id: str, query: str, top_k: int = 3, min_score: float = 0.05
+        self,
+        session_id: str,
+        query: str,
+        top_k: int = 3,
+        min_score: float = 0.05,
+        span_class: str | None = None,
     ) -> list[ArchivedSpan]:
         qtokens = _tokenize(query)
-        scored = [(_lexical_score(qtokens, a.content), a) for a in self._archive_rows(session_id)]
+        rows = [
+            a
+            for a in self._archive_rows(session_id)
+            if span_class is None or a.span_class == span_class
+        ]
+        scored = [(_lexical_score(qtokens, a.content), a) for a in rows]
         scored = [(s, a) for s, a in scored if s >= min_score]
         scored.sort(key=lambda pair: (-pair[0], -pair[1].step))
         return [a for _, a in scored[:top_k]]
@@ -200,8 +215,16 @@ class ArchiveView:
         self._store = store
         self._session_id = session_id
 
-    def search(self, query: str, top_k: int = 3, min_score: float = 0.05) -> list[ArchivedSpan]:
-        return self._store.archive_search(self._session_id, query, top_k=top_k, min_score=min_score)
+    def search(
+        self,
+        query: str,
+        top_k: int = 3,
+        min_score: float = 0.05,
+        span_class: str | None = None,
+    ) -> list[ArchivedSpan]:
+        return self._store.archive_search(
+            self._session_id, query, top_k=top_k, min_score=min_score, span_class=span_class
+        )
 
     def recent(self, k: int = 10) -> list[ArchivedSpan]:
         return self._store.archive_recent(self._session_id, k=k)

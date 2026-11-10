@@ -27,8 +27,10 @@ class KeepRecent:
         tail = [s for s in window.spans if not s.cache_head]
         droppable = [s for s in tail if not (s.pinned or s.protected)]
 
-        # Oldest droppable spans beyond the last `keep_n` are dropped.
-        overflow = droppable[:-keep_n] if keep_n < len(droppable) else []
+        # Oldest droppable spans beyond the last `keep_n` are dropped
+        # (keep_n=0 drops every droppable span; the guardrail still vetoes
+        # pinned/protected spans before anything is recorded).
+        overflow = droppable[: len(droppable) - keep_n] if keep_n < len(droppable) else []
         drop_ids = {s.span_id for s in overflow}
 
         if not drop_ids:

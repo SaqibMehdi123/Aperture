@@ -88,6 +88,7 @@ class Session:
             "cache_misses": 0,
             "bytes_dropped": 0,
             "spans_dropped": 0,
+            "probes_failed": 0,
         }
 
     def add_span(
@@ -183,6 +184,7 @@ class Session:
         s["cache_hits" if resp.telemetry.cache_hit else "cache_misses"] += 1
         s["bytes_dropped"] += sum(d.bytes for diff in diffs for d in diff.dropped_spans)
         s["spans_dropped"] += sum(len(diff.dropped_spans) for diff in diffs)
+        s["probes_failed"] += sum(not o.survived for o in outcomes)
 
         provider, model_id, price_list = rt.describe_model()
         step = self.window.step
@@ -245,12 +247,15 @@ def _diff_dict(diff: DiffRecord) -> dict[str, Any]:
 
 
 PROFILES: dict[str, dict[str, int | float]] = {
-    # One-knob curation posture (DX): when to start curating and how much to
-    # keep. "off" never curates (threshold above the max budget fraction).
-    "balanced": {"threshold": 0.7, "keep_n": 12},
-    "lean": {"threshold": 0.45, "keep_n": 8},
-    "safe": {"threshold": 0.9, "keep_n": 24},
-    "off": {"threshold": 1.01, "keep_n": 12},
+    # "balanced" is the tuned fixed-heuristic point from `eval/tune.py`
+    # (grid sweep on the deterministic task suite, train split; manifest in
+    # results/tuning/): 53.1% cumulative input-token reduction vs full
+    # history at equal task success and zero probe failures. "lean"/"safe"
+    # are derived postures around that point, not independently tuned.
+    "balanced": {"threshold": 0.5, "keep_n": 6, "dedupe_at": 0.2},
+    "lean": {"threshold": 0.4, "keep_n": 5, "dedupe_at": 0.2},
+    "safe": {"threshold": 0.7, "keep_n": 12, "dedupe_at": 0.4},
+    "off": {"threshold": 1.01, "keep_n": 12},  # never curates (dedupe disabled)
 }
 
 

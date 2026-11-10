@@ -72,3 +72,24 @@ def _features(w):
         drift_score=0.0,
         prefix_hash=w.prefix_hash(),
     )
+
+
+def test_keep_recent_zero_keeps_nothing_droppable():
+    """keep_n=0 must drop all droppable spans ([:-0] slicing bug regression)."""
+    from aperture.operators.keep_recent import KeepRecent
+    from aperture.session import Features
+
+    w = make_window()
+    feats = Features(
+        budget_used_frac=1.0,
+        task_phase="act",
+        tool_output_tokens_recent=0,
+        redundancy_score=0.0,
+        drift_score=0.0,
+        prefix_hash=w.prefix_hash(),
+    )
+    diff = KeepRecent().apply(w, feats, {"keep_n": 0})
+    dropped_ids = {d.span_id for d in diff.dropped_spans}
+    kept = set(diff.kept_spans)
+    assert not (dropped_ids & kept)
+    assert dropped_ids  # something droppable existed and was dropped

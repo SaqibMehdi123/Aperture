@@ -165,7 +165,15 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 - report, don't crash the job
             kind = classify(exc)
             label = "RATE_LIMITED (key authenticated)" if kind == "rate_limited" else "FAIL"
-            print(f"[{provider}] {label}: {kind}: {str(exc)[:400]}")
+            detail = str(exc)[:200]
+            for attr in ("body", "details"):
+                value = getattr(exc, attr, None)
+                if value:
+                    detail += f" {attr}={str(value)[:300]}"
+            response = getattr(exc, "response", None)
+            if response is not None:
+                detail += f" response={getattr(response, 'text', '')[:300]}"
+            print(f"[{provider}] {label}: {kind}: {detail}")
             if kind != "rate_limited":
                 failures.append(f"{provider}:{kind}")
 

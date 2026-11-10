@@ -55,6 +55,49 @@ _APPROVAL_RE = re.compile(r"(has been|is|was) approved|approved\.?$", re.IGNOREC
 _FLOAT_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 
+def is_rate_limit(exc: Exception) -> bool:
+    """Whether a provider exception is a throttling signal worth retrying."""
+    if getattr(exc, "status_code", None) == 429:
+        return True
+    return "RateLimit" in type(exc).__name__
+
+
+class RetryingGateway:
+    """ModelGateway wrapper with exponential backoff on provider rate limits.
+
+    Free tiers throttle on tokens-per-minute; a live arm run paces itself
+    instead of failing. Backoff doubles from `base_s`, `attempts` tries.
+    litellm's own retry path needs tenacity, which we do not ship.
+    """
+
+    def __init__(self, inner, attempts: int = 6, base_s: float = 5.0, sleep=time.sleep):
+        self._inner = inner
+        self._attempts = attempts
+        self._base_s = base_s
+        self._sleep = sleep
+
+    def describe(self) -> tuple[str, str]:
+        return self._inner.describe()
+
+    @property
+    def price_list(self) -> str:
+        return getattr(self._inner, "price_list", "unarchived")
+
+    def complete(self, window):
+        for attempt in range(self._attempts):
+            try:
+                return self._inner.complete(window)
+            except Exception as exc:
+                if not is_rate_limit(exc) or attempt == self._attempts - 1:
+                    raise
+                wait = self._base_s * (2**attempt)
+                print(
+                    f"[retry] rate limited; backing off {wait:.0f}s "
+                    f"(attempt {attempt + 1}/{self._attempts})"
+                )
+                self._sleep(wait)
+
+
 def grade_live(family: str, plan, reply: str) -> bool:
     """Tolerant grading for real models: same quantities as eval.tasks.grade,
     but robust to phrasing ("The access code is 1234." still passes)."""
@@ -110,13 +153,13 @@ def resolve_gateway(provider: str, model: str | None, api_key: str):
         model_id = model
     else:
         models = _list_models(provider, api_key)
-        model_id = verify_model(provider, api_key, pick_models(models, PREFERRED[provider]))
+        candidates = pick_models(models, PREFERRED[provider])
+        print(f"[live] catalog candidates: {candidates}")
+        model_id = verify_model(provider, api_key, candidates)
         if model_id is None:
             raise RuntimeError(f"no working chat model in the {provider} catalog")
     model_string, extra = gateway_route(provider, model_id)
-    gateway = LiteLLMGateway(
-        model_string, api_key=api_key, timeout_s=90.0, num_retries=4, **extra
-    )
+    gateway = LiteLLMGateway(model_string, api_key=api_key, timeout_s=90.0, **extra)
     return gateway, model_id, model_string, f"{provider}-free-tier"
 
 
@@ -131,7 +174,8 @@ def live_compare(
 ) -> dict[str, Any]:
     """Run arms x families x seeds against a real provider; write results."""
     api_key = _require_key(provider)
-    gateway, model_id, model_string, price_list = resolve_gateway(provider, model, api_key)
+    inner, model_id, model_string, price_list = resolve_gateway(provider, model, api_key)
+    gateway = RetryingGateway(inner)
     print(f"[live] provider={provider} model={model_id} price_list={price_list}")
 
     per_arm: dict[str, dict[str, dict[str, Any]]] = {}
@@ -223,7 +267,7 @@ def main() -> None:
     parser.add_argument("--arms", default=",".join(DEFAULT_LIVE_ARMS))
     parser.add_argument("--families", default=",".join(FAMILIES))
     parser.add_argument("--seeds", default="0,1")
-    parser.add_argument("--pause-s", type=float, default=1.0)
+    parser.add_argument("--pause-s", type=float, default=2.0)
     args = parser.parse_args()
 
     summary = live_compare(

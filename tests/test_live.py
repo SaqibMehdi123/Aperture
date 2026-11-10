@@ -6,9 +6,98 @@ under `python -m eval.live`.
 
 from __future__ import annotations
 
-from eval.live import DEFAULT_LIVE_ARMS, grade_live, plan_matrix, summarize_live
+from eval.live import (
+    DEFAULT_LIVE_ARMS,
+    RetryingGateway,
+    grade_live,
+    is_rate_limit,
+    plan_matrix,
+    summarize_live,
+)
 from eval.provider_smoke import API_KEY_ENV, gateway_route
 from eval.tasks import build_task
+
+
+class RateLimitError(Exception):
+    """Name matches the litellm/openai rate-limit error family."""
+
+
+class ServerError(Exception):
+    pass
+
+
+class FlakyGateway:
+    def __init__(self, failures: list[Exception]) -> None:
+        self.failures = list(failures)
+        self.calls = 0
+        self.sleeps: list[float] = []
+
+    def describe(self) -> tuple[str, str]:
+        return ("test", "test-model")
+
+    @property
+    def price_list(self) -> str:
+        return "test-list"
+
+    def complete(self, window):  # noqa: ARG002 - signature compatibility
+        self.calls += 1
+        if self.failures:
+            raise self.failures.pop(0)
+        return "ok"
+
+
+class TestIsRateLimit:
+    def test_by_type_name(self) -> None:
+        assert is_rate_limit(RateLimitError("x")) is True
+
+    def test_by_status_code(self) -> None:
+        err = ServerError("x")
+        err.status_code = 429  # type: ignore[attr-defined]
+        assert is_rate_limit(err) is True
+
+    def test_other_errors(self) -> None:
+        assert is_rate_limit(ServerError("x")) is False
+        assert is_rate_limit(ValueError("x")) is False
+
+
+class TestRetryingGateway:
+    def test_immediate_success(self) -> None:
+        gw = FlakyGateway([])
+        wrapped = RetryingGateway(gw, sleep=gw.sleeps.append)
+        assert wrapped.complete(None) == "ok"
+        assert gw.calls == 1 and gw.sleeps == []
+
+    def test_retries_then_succeeds(self) -> None:
+        gw = FlakyGateway([RateLimitError("a"), RateLimitError("b")])
+        wrapped = RetryingGateway(gw, sleep=gw.sleeps.append)
+        assert wrapped.complete(None) == "ok"
+        assert gw.calls == 3
+        assert gw.sleeps == [5.0, 10.0]  # exponential from base 5
+
+    def test_non_rate_limit_raises_immediately(self) -> None:
+        gw = FlakyGateway([ServerError("boom")])
+        wrapped = RetryingGateway(gw, sleep=gw.sleeps.append)
+        try:
+            wrapped.complete(None)
+        except ServerError:
+            assert gw.calls == 1 and gw.sleeps == []
+            return
+        raise AssertionError("expected ServerError")
+
+    def test_exhaustion_raises(self) -> None:
+        gw = FlakyGateway([RateLimitError("x")] * 10)
+        wrapped = RetryingGateway(gw, attempts=3, base_s=1.0, sleep=gw.sleeps.append)
+        try:
+            wrapped.complete(None)
+        except RateLimitError:
+            assert gw.calls == 3 and gw.sleeps == [1.0, 2.0]
+            return
+        raise AssertionError("expected RateLimitError")
+
+    def test_describe_and_price_list_delegation(self) -> None:
+        wrapped = RetryingGateway(FlakyGateway([]))
+        assert wrapped.describe() == ("test", "test-model")
+        assert wrapped.price_list == "test-list"
 
 NEEDLE = build_task("needle_qa", 0)
 AGG = build_task("aggregate_batch", 0)

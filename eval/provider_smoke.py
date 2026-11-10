@@ -27,6 +27,7 @@ from typing import Any
 PREFERRED: dict[str, tuple[str, ...]] = {
     "groq": (
         "llama-3.3-70b-versatile",
+        "*scout*",  # llama-4-scout: 30k ITPM free tier - headroom for live runs
         "llama-3.1-8b-instant",
         "gpt-oss-120b",
         "llama-*70b*",

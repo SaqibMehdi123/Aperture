@@ -25,6 +25,10 @@ Keep a Changelog; versioning is SemVer.
 - Session stat `probes_failed` (per-call survival-probe failures).
 - `archive_search(..., span_class=...)` class filter on both stores, so a
   tool-output query can rank tool evidence over chat turns.
+- **Live provider smoke** (`python -m eval.provider_smoke` + CI job): one tiny
+  completion per provider through Aperture's LiteLLM gateway; CI runs it on
+  every push to main using repo secrets. Exit 0 also covers rate limits (key
+  authenticated), non-zero on auth/region/catalog failures.
 
 ### Changed
 - **Tuned `balanced` profile shipped as default**

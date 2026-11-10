@@ -23,3 +23,23 @@ jobs:
         run: ruff check .
       - name: Tests (pytest)
         run: pytest -q
+
+  provider-smoke:
+    # Live check that the provider keys on this repo work: one tiny
+    # completion per provider through Aperture's LiteLLM gateway.
+    # Runs only on main - forks and PRs have no access to the secrets.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (with litellm extra)
+        run: pip install -e .[litellm]
+      - name: Live provider smoke (Groq + Gemini)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -m eval.provider_smoke

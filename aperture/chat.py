@@ -30,6 +30,22 @@ class ChatSession:
         self._finished = False
 
     # -- context assembly ---------------------------------------------------
+    def ingest(self, text: str, role: str = "user") -> None:
+        """Add a turn WITHOUT a model call (framework state sync).
+
+        roles: "user" | "tool" | "assistant" | "system". Used by adapters to
+        mirror an external conversation state into the window.
+        """
+        if role == "system":
+            self.system(text)
+            return
+        span_class = {"user": "conversation", "tool": "tool_result", "assistant": "assistant"}.get(
+            role
+        )
+        if span_class is None:
+            raise ValueError(f"unknown role {role!r}; use 'user', 'tool', 'assistant', or 'system'")
+        self._sess.add_span(text, span_class=span_class)
+
     def system(self, text: str) -> None:
         """System prompt: pinned, protected, and part of the cache head."""
         self._sess.add_span(text, span_class="system", pinned=True, protected=True, cache_head=True)

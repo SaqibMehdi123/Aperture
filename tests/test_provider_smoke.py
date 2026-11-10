@@ -59,6 +59,11 @@ class TestPickModel:
         assert pick_model(models, ("gemini-*-flash*",)) == "gemini-3.8-flash"
         assert pick_model(models, ("gemini-2.5-flash",)) is None
 
+    def test_strips_models_prefix_from_catalog_ids(self) -> None:
+        # Gemini lists ids like 'models/gemini-2.5-flash'; preferences are bare
+        models = ["models/gemini-2.5-flash", "models/gemini-2.5-pro"]
+        assert pick_model(models, ("gemini-2.5-flash",)) == "gemini-2.5-flash"
+
 
 @pytest.mark.parametrize(
     "status,expected",

@@ -25,14 +25,27 @@ import sys
 from typing import Any
 
 PREFERRED: dict[str, tuple[str, ...]] = {
-    "groq": ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gpt-oss-120b"),
-    "gemini": ("gemini-2.5-flash", "gemini-*-flash*"),
+    "groq": (
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "gpt-oss-120b",
+        "llama-*70b*",
+        "gpt-oss-*",
+        "llama-*instant*",
+        "qwen*",
+    ),
+    "gemini": ("gemini-2.5-flash", "gemini-*-flash*", "gemini-*-flash-lite*"),
 }
 OPENAI_COMPAT_BASE_URLS: dict[str, str] = {
     "groq": "https://api.groq.com/openai/v1",
     "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
 }
 PROBE_PROMPT = "Reply with exactly: OK"
+
+
+def _normalize(model_id: str) -> str:
+    """Catalog ids sometimes carry a 'models/' prefix; match and report bare."""
+    return model_id.removeprefix("models/")
 
 
 def classify(exc: Exception) -> str:
@@ -52,8 +65,9 @@ def classify(exc: Exception) -> str:
 
 def pick_model(models: list[str], preferences: tuple[str, ...]) -> str | None:
     """First available model matching the preference order (globs allowed)."""
+    normalized = [_normalize(m) for m in models]
     for pref in preferences:
-        for model_id in models:
+        for model_id in normalized:
             if fnmatch.fnmatch(model_id, pref):
                 return model_id
     return None
@@ -102,7 +116,8 @@ def main() -> int:
             models = _list_models(provider, api_key)
             model = pick_model(models, PREFERRED[provider])
             if model is None:
-                print(f"[{provider}] FAIL: no usable chat model in catalog ({len(models)} listed)")
+                print(f"[{provider}] FAIL: no preferred model in catalog ({len(models)} listed)")
+                print(f"[{provider}] catalog: {sorted(_normalize(m) for m in models)}")
                 failures.append(f"{provider}:missing_model")
                 continue
             result = _probe(provider, model, api_key)

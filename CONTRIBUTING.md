@@ -29,9 +29,9 @@ A change is done when:
 
 ## Sprints
 
-Work runs in two-week sprints ending with a demo against the regression subset and a
-one-page sprint note in `docs/SPRINT-<nn>.md` that explicitly checks the current
-gate's criteria (G1-G4).
+Work runs in two-week sprints ending with a demo against the regression subset
+and a `CHANGELOG.md` entry. Gate criteria (G1-G4) are tracked in the README
+roadmap; release notes carry the details.
 
 ## Setup
 

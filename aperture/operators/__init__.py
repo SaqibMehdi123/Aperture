@@ -1,9 +1,10 @@
 """Operator library (spec 7.1, "Operator Library").
 
-Seven operators are planned across Phases P0-P4: keep_recent, semantic_retrieval,
-summarize, dedupe, subagent_isolation, pin_protected, cache_align. Phase P0 seeds
-the registry and keep_recent; each operator is pure (apply -> WindowDiff) so the
-engine guardrail and the replay engine can audit it.
+Seven operators behind the Operator protocol (spec Table 6, P1):
+keep_recent, dedupe, summarize, pin_protected, cache_align,
+subagent_isolation, semantic_retrieval. Every operator is pure
+(apply -> WindowDiff) so the engine guardrail and the replay engine can audit
+it; destructive intent is expressed only through `dropped_spans`.
 """
 
 from __future__ import annotations
@@ -22,25 +23,29 @@ def register(op: type) -> type:
     return op
 
 
+def _load_builtins() -> None:
+    from aperture.operators import (  # noqa: F401 - built-ins register on import
+        dedupe,
+        keep_recent,
+        summarize,
+    )
+
+
 def registry() -> dict[str, Operator]:
     """Snapshot of the current registry (name -> operator)."""
-    from aperture.operators import keep_recent  # noqa: F401 - ensure built-ins register
-
+    _load_builtins()
     return dict(_REGISTRY)
 
 
 def get(name: str) -> Operator:
-    if name not in _REGISTRY:
-        from aperture.operators import keep_recent  # noqa: F401 - ensure built-ins register
-
+    _load_builtins()
     if name not in _REGISTRY:
         raise KeyError(f"unknown operator: {name!r}; available: {sorted(_REGISTRY)}")
     return _REGISTRY[name]
 
 
 def available() -> list[str]:
-    from aperture.operators import keep_recent  # noqa: F401 - ensure built-ins register
-
+    _load_builtins()
     return sorted(_REGISTRY)
 
 

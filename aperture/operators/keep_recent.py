@@ -40,9 +40,7 @@ class KeepRecent:
         )
         kept = tuple(s.span_id for s in window.spans if s.span_id not in drop_ids)
         # Constraint-class drops become survival-probe targets (AG2).
-        probe_targets = tuple(
-            s.span_id for s in overflow if s.span_class == "constraint"
-        )
+        probe_targets = tuple(s.span_id for s in overflow if s.span_class == "constraint")
         return WindowDiff(
             op=self.name,
             kept_spans=kept,

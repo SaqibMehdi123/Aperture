@@ -29,6 +29,8 @@ def _load_builtins() -> None:
         dedupe,
         keep_recent,
         pin_protected,
+        semantic_retrieval,
+        subagent_isolation,
         summarize,
     )
 

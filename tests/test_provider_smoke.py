@@ -7,7 +7,7 @@ The live network path is never exercised here - only the pure helpers, so
 from __future__ import annotations
 
 import pytest
-from eval.provider_smoke import classify, pick_model
+from eval.provider_smoke import classify, pick_model, pick_models
 
 PREFERRED = {
     "groq": ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gpt-oss-120b"),
@@ -63,6 +63,15 @@ class TestPickModel:
         # Gemini lists ids like 'models/gemini-2.5-flash'; preferences are bare
         models = ["models/gemini-2.5-flash", "models/gemini-2.5-pro"]
         assert pick_model(models, ("gemini-2.5-flash",)) == "gemini-2.5-flash"
+
+    def test_pick_models_orders_by_preference_and_dedupes(self) -> None:
+        models = ["a-flash", "b-flash", "a-flash", "c-pro"]
+        got = pick_models(models, ("b-flash", "a-flash", "z-*"))
+        assert got == ["b-flash", "a-flash"]
+
+    def test_pick_models_caps_candidates(self) -> None:
+        models = ["m1", "m2", "m3", "m4", "m5"]
+        assert pick_models(models, ("m*",), limit=3) == ["m1", "m2", "m3"]
 
 
 @pytest.mark.parametrize(

@@ -65,12 +65,22 @@ def classify(exc: Exception) -> str:
 
 def pick_model(models: list[str], preferences: tuple[str, ...]) -> str | None:
     """First available model matching the preference order (globs allowed)."""
+    return pick_models(models, preferences, limit=1)[0] if models else None
+
+
+def pick_models(
+    models: list[str], preferences: tuple[str, ...], limit: int = 4
+) -> list[str]:
+    """Matched models in preference order (globs allowed, deduped, capped)."""
     normalized = [_normalize(m) for m in models]
+    out: list[str] = []
     for pref in preferences:
         for model_id in normalized:
-            if fnmatch.fnmatch(model_id, pref):
-                return model_id
-    return None
+            if fnmatch.fnmatch(model_id, pref) and model_id not in out:
+                out.append(model_id)
+                if len(out) >= limit:
+                    return out
+    return out
 
 
 def _list_models(provider: str, api_key: str) -> list[str]:
@@ -88,9 +98,16 @@ def _probe(provider: str, model: str, api_key: str) -> dict[str, Any]:
     from aperture.models.litellm_gateway import LiteLLMGateway
     from aperture.session import Span, Window
 
-    gateway = LiteLLMGateway(
-        f"{provider}/{model.removeprefix('models/')}", api_key=api_key, timeout_s=60
-    )
+    if provider == "gemini":
+        # AI Studio's new AQ.-format keys authenticate as Bearer on the
+        # OpenAI-compat route; litellm's native v1beta route rejects them and
+        # serves a model list that disagrees with the compat catalog.
+        model_string = f"openai/{model}"
+        extra: dict[str, Any] = {"base_url": OPENAI_COMPAT_BASE_URLS["gemini"]}
+    else:
+        model_string = f"{provider}/{model}"
+        extra = {}
+    gateway = LiteLLMGateway(model_string, api_key=api_key, timeout_s=60, **extra)
     window = Window(
         token_budget=10_000,
         spans=[Span(span_id="s0", span_class="user", content=PROBE_PROMPT)],
@@ -114,18 +131,36 @@ def main() -> int:
             continue
         try:
             models = _list_models(provider, api_key)
-            model = pick_model(models, PREFERRED[provider])
-            if model is None:
+            candidates = pick_models(models, PREFERRED[provider])
+            if not candidates:
                 print(f"[{provider}] FAIL: no preferred model in catalog ({len(models)} listed)")
                 print(f"[{provider}] catalog: {sorted(_normalize(m) for m in models)}")
                 failures.append(f"{provider}:missing_model")
                 continue
-            result = _probe(provider, model, api_key)
-            print(
-                f"[{provider}] OK {model}: reply={result['text']!r} "
-                f"in={result['input_tokens']}tok out={result['output_tokens']}tok "
-                f"latency={result['latency_ms']:.0f}ms"
-            )
+            sent = False
+            for model in candidates:
+                try:
+                    result = _probe(provider, model, api_key)
+                except Exception as exc:  # noqa: BLE001 - try the next candidate
+                    kind = classify(exc)
+                    if kind == "missing_model":
+                        print(f"[{provider}] {model}: not served, trying next candidate")
+                        continue
+                    if kind == "rate_limited":
+                        print(f"[{provider}] RATE_LIMITED (key authenticated) on {model}")
+                        sent = True  # good enough: the key works
+                        break
+                    raise
+                print(
+                    f"[{provider}] OK {model}: reply={result['text']!r} "
+                    f"in={result['input_tokens']}tok out={result['output_tokens']}tok "
+                    f"latency={result['latency_ms']:.0f}ms"
+                )
+                sent = True
+                break
+            if not sent:
+                print(f"[{provider}] FAIL: every candidate rejected ({candidates})")
+                failures.append(f"{provider}:missing_model")
         except Exception as exc:  # noqa: BLE001 - report, don't crash the job
             kind = classify(exc)
             label = "RATE_LIMITED (key authenticated)" if kind == "rate_limited" else "FAIL"

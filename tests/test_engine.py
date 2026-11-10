@@ -30,8 +30,12 @@ class PinBlindTruncate:
 def make_window():
     head = Span(span_id="sys", span_class="system", content="system", cache_head=True, pinned=True)
     constraint = Span(
-        span_id="c0", span_class="constraint", content="policy text",
-        pinned=True, protected=True, cache_head=True,
+        span_id="c0",
+        span_class="constraint",
+        content="policy text",
+        pinned=True,
+        protected=True,
+        cache_head=True,
     )
     tools = [Span(span_id=f"t{i}", span_class="tool_result", content=f"tool {i}") for i in range(4)]
     return Window(token_budget=10**6, spans=[head, constraint, *tools])
@@ -39,8 +43,12 @@ def make_window():
 
 def _features(w):
     return Features(
-        budget_used_frac=w.used_frac(), task_phase="act", tool_output_tokens_recent=0,
-        redundancy_score=0.0, drift_score=0.0, prefix_hash=w.prefix_hash(),
+        budget_used_frac=w.used_frac(),
+        task_phase="act",
+        tool_output_tokens_recent=0,
+        redundancy_score=0.0,
+        drift_score=0.0,
+        prefix_hash=w.prefix_hash(),
     )
 
 

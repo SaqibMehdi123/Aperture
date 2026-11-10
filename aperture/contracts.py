@@ -47,9 +47,7 @@ class ContractRegistry:
         """Return violations of the contract against a window (empty = valid)."""
         violations: list[str] = []
         if window.total_tokens() > contract.token_budget:
-            violations.append(
-                f"budget: {window.total_tokens()} > {contract.token_budget}"
-            )
+            violations.append(f"budget: {window.total_tokens()} > {contract.token_budget}")
         for span in window.spans:
             if span.span_class not in contract.allowed_classes:
                 violations.append(

@@ -21,9 +21,13 @@ def test_contract_roundtrip_fields():
 
 def test_registry_ttl_expiry():
     c = ContextContract(
-        task_id="t1", objective="x", token_budget=100,
-        allowed_classes=frozenset({"tool_result"}), ttl_steps=2,
-        provenance=(), return_schema="{}",
+        task_id="t1",
+        objective="x",
+        token_budget=100,
+        allowed_classes=frozenset({"tool_result"}),
+        ttl_steps=2,
+        provenance=(),
+        return_schema="{}",
     )
     reg = ContractRegistry()
     reg.register(c, step=0)
@@ -34,9 +38,13 @@ def test_registry_ttl_expiry():
 
 def test_validate_window_budget_and_classes():
     c = ContextContract(
-        task_id="t1", objective="x", token_budget=10,
-        allowed_classes=frozenset({"tool_result"}), ttl_steps=5,
-        provenance=(), return_schema="{}",
+        task_id="t1",
+        objective="x",
+        token_budget=10,
+        allowed_classes=frozenset({"tool_result"}),
+        ttl_steps=5,
+        provenance=(),
+        return_schema="{}",
     )
     reg = ContractRegistry()
     w = Window(

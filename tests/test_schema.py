@@ -28,7 +28,10 @@ def test_dump_json_uses_appendix_a_names():
     assert data["probes"][0]["class"] == "constraint"
     # 4-field reward per Appendix A (no cache_invalidation in the trace)
     assert set(data["reward"]) == {
-        "task_progress", "cost_delta_usd", "survival_penalty", "latency_ms"
+        "task_progress",
+        "cost_delta_usd",
+        "survival_penalty",
+        "latency_ms",
     }
 
 
@@ -56,7 +59,15 @@ def test_json_schema_export():
     assert "TraceRecord" in schema["title"] or "trace" in schema["title"].lower()
     props = schema["properties"]
     for group in (
-        "schema", "step", "features", "plan", "diffs",
-        "cache", "probes", "call", "reward", "outcome",
+        "schema",
+        "step",
+        "features",
+        "plan",
+        "diffs",
+        "cache",
+        "probes",
+        "call",
+        "reward",
+        "outcome",
     ):
         assert group in props

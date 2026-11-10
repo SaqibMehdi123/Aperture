@@ -44,8 +44,7 @@ class ModelResponse:
 
 @runtime_checkable
 class ModelGateway(Protocol):
-    def complete(self, window: Window) -> ModelResponse:
-        ...
+    def complete(self, window: Window) -> ModelResponse: ...
 
 
 class SyntheticGateway:
@@ -151,13 +150,8 @@ class OpenAICompatGateway:
         usage = body.get("usage", {})
         input_tokens = int(usage.get("prompt_tokens", 0))
         output_tokens = int(usage.get("completion_tokens", 0))
-        cached = int(
-            (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
-        )
-        cost = (
-            input_tokens / 1000.0 * self.price_in
-            + output_tokens / 1000.0 * self.price_out
-        )
+        cached = int((usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0)
+        cost = input_tokens / 1000.0 * self.price_in + output_tokens / 1000.0 * self.price_out
         text = (body.get("choices") or [{}])[0].get("message", {}).get("content", "")
         return ModelResponse(
             text=text,

@@ -111,8 +111,12 @@ def test_harness_is_append_only(tmp_path):
 def test_harness_rejects_unknown_arm(tmp_path):
     with pytest.raises(ValueError):
         run_arm(
-            "not_an_arm", "toy", lambda m, s: {}, SyntheticProbeModel,
-            seeds=[1], results_root=tmp_path,
+            "not_an_arm",
+            "toy",
+            lambda m, s: {},
+            SyntheticProbeModel,
+            seeds=[1],
+            results_root=tmp_path,
         )
 
 
@@ -125,6 +129,10 @@ def _feats(w):
     from aperture.session import Features
 
     return Features(
-        budget_used_frac=w.used_frac(), task_phase="act", tool_output_tokens_recent=0,
-        redundancy_score=0.0, drift_score=0.0, prefix_hash=w.prefix_hash(),
+        budget_used_frac=w.used_frac(),
+        task_phase="act",
+        tool_output_tokens_recent=0,
+        redundancy_score=0.0,
+        drift_score=0.0,
+        prefix_hash=w.prefix_hash(),
     )

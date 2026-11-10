@@ -45,8 +45,7 @@ class Operator(Protocol):
         """Cheap estimate of execution cost (units: ~ms or work units)."""
         ...
 
-    def apply(self, window: Window, ctx: Features, params: dict[str, Any]) -> WindowDiff:
-        ...
+    def apply(self, window: Window, ctx: Features, params: dict[str, Any]) -> WindowDiff: ...
 
 
 @runtime_checkable

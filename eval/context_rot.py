@@ -99,12 +99,8 @@ def focused_vs_full_probe(
     _, model_id = model.describe()
     from aperture.session import Span, Window
 
-    facts = [
-        (f"What is the capital of country-{i}?", f"city-{i}") for i in range(n_facts)
-    ]
-    needle_block = "\n".join(
-        f"The answer to the question '{q}' is {a}." for q, a in facts
-    )
+    facts = [(f"What is the capital of country-{i}?", f"city-{i}") for i in range(n_facts)]
+    needle_block = "\n".join(f"The answer to the question '{q}' is {a}." for q, a in facts)
     question, answer = facts[-1]
 
     full_prompt = (

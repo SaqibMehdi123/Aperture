@@ -25,8 +25,12 @@ def make_window():
 
 def _features(w):
     return Features(
-        budget_used_frac=w.used_frac(), task_phase="act", tool_output_tokens_recent=0,
-        redundancy_score=0.0, drift_score=0.0, prefix_hash=w.prefix_hash(),
+        budget_used_frac=w.used_frac(),
+        task_phase="act",
+        tool_output_tokens_recent=0,
+        redundancy_score=0.0,
+        drift_score=0.0,
+        prefix_hash=w.prefix_hash(),
     )
 
 
@@ -38,26 +42,30 @@ def make_record(window, diffs, step=3):
             "ts": "2027-03-14T09:22:11.408Z",
             "session_id": "s-1",
             "arm": "aperture_fixed",
-            "model": {
-                "provider": "synthetic", "id": "synthetic-1", "price_list": "synthetic"
-            },
+            "model": {"provider": "synthetic", "id": "synthetic-1", "price_list": "synthetic"},
             "features": {
-                "budget_used_frac": 0.5, "task_phase": "act",
-                "tool_output_tokens_recent": 10, "redundancy_score": 0.0,
-                "drift_score": 0.0, "prefix_hash": window.prefix_hash(),
+                "budget_used_frac": 0.5,
+                "task_phase": "act",
+                "tool_output_tokens_recent": 10,
+                "redundancy_score": 0.0,
+                "drift_score": 0.0,
+                "prefix_hash": window.prefix_hash(),
             },
             "plan": [{"op": "keep_recent", "params": {"keep_n": 2}, "order": 0}],
             "diffs": [window_diff_to_record(d).model_dump() for d in diffs],
             "cache": {
-                "prefix_tokens": 4, "hit": False, "invalidated_bytes": 0, "discount_usd": 0.0
+                "prefix_tokens": 4,
+                "hit": False,
+                "invalidated_bytes": 0,
+                "discount_usd": 0.0,
             },
             "probes": [],
-            "call": {
-                "input_tokens": 100, "output_tokens": 4, "cost_usd": 0.001, "latency_ms": 2.0
-            },
+            "call": {"input_tokens": 100, "output_tokens": 4, "cost_usd": 0.001, "latency_ms": 2.0},
             "reward": {
-                "task_progress": 0.0, "cost_delta_usd": 0.001,
-                "survival_penalty": 0.0, "latency_ms": 2.0,
+                "task_progress": 0.0,
+                "cost_delta_usd": 0.001,
+                "survival_penalty": 0.0,
+                "latency_ms": 2.0,
             },
         }
     )
@@ -112,12 +120,14 @@ def test_survival_probes_containment():
     )
     specs = [
         ProbeSpec(
-            probe_id="refund-policy", span_class="constraint",
+            probe_id="refund-policy",
+            span_class="constraint",
             pattern="Refunds are approved only if",
         ),
         ProbeSpec(probe_id="missing", span_class="constraint", pattern="NOT IN CONTEXT"),
         ProbeSpec(
-            probe_id="wrong-class", span_class="system",
+            probe_id="wrong-class",
+            span_class="system",
             pattern="Refunds are approved only if",
         ),
     ]

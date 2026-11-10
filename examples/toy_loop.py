@@ -49,12 +49,18 @@ def main() -> None:
         print(f"trace records written: {len(records)}")
         rec = records[0]
         print(f"schema:      {rec.schema_}")
-        print(f"features:    budget_used_frac={rec.features.budget_used_frac} "
-              f"redundancy={rec.features.redundancy_score}")
-        print(f"plan/diffs:  {[p.op for p in rec.plan]} "
-              f"dropped={sum(len(d.dropped) for d in rec.diffs)}")
-        print(f"cache:       hit={rec.cache.hit} prefix_tokens={rec.cache.prefix_tokens} "
-              f"discount_usd={rec.cache.discount_usd}")
+        print(
+            f"features:    budget_used_frac={rec.features.budget_used_frac} "
+            f"redundancy={rec.features.redundancy_score}"
+        )
+        print(
+            f"plan/diffs:  {[p.op for p in rec.plan]} "
+            f"dropped={sum(len(d.dropped) for d in rec.diffs)}"
+        )
+        print(
+            f"cache:       hit={rec.cache.hit} prefix_tokens={rec.cache.prefix_tokens} "
+            f"discount_usd={rec.cache.discount_usd}"
+        )
         print(f"probes:      {[p.survived for p in rec.probes]}")
 
 

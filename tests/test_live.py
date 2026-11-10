@@ -293,3 +293,35 @@ class TestRunArmLiveOffline:
             spent=spent, pause_s=0,
         )
         assert spent["tokens"] > 0
+
+
+
+class TestMinIntervalPacing:
+    def test_paces_calls_apart(self) -> None:
+        t = {"now": 0.0}
+
+        def clock() -> float:
+            return t["now"]
+
+        def sleep(s: float) -> None:
+            t["now"] += s
+
+        gw = FlakyGateway([])
+        recorded: list[float] = []
+
+        def recording_sleep(s: float) -> None:
+            recorded.append(s)
+            t["now"] += s
+
+        wrapped = RetryingGateway(gw, min_interval_s=15.0, sleep=recording_sleep, clock=clock)
+
+        wrapped.complete(None)  # first call: no previous call, no wait
+        assert recorded == []
+
+        wrapped.complete(None)  # 0s since call 1 -> sleeps the full interval
+        assert recorded == [15.0]
+
+        t["now"] = 20.0  # only 5s since call 2 started
+        wrapped.complete(None)  # sleeps the missing 10s
+        assert recorded == [15.0, 10.0]
+        assert gw.calls == 3

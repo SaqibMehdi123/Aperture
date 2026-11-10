@@ -58,6 +58,13 @@ _FLOAT_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+# proactive per-call pacing by provider: the cheapest way to live with a
+# requests-per-minute cap is to never hit it
+MIN_CALL_INTERVAL_S: dict[str, float] = {
+    "groq": 1.0,   # 30 RPM
+    "gemini": 15.0,  # ~4 RPM on the free tier
+}
+
 
 def is_retryable(exc: Exception) -> bool:
     """Whether a provider exception is transient: throttling (429) or a 5xx
@@ -77,18 +84,30 @@ def is_rate_limit(exc: Exception) -> bool:
 
 
 class RetryingGateway:
-    """ModelGateway wrapper with exponential backoff on provider rate limits.
+    """ModelGateway wrapper that paces calls and backs off transient errors.
 
-    Free tiers throttle on tokens-per-minute; a live arm run paces itself
-    instead of failing. Backoff doubles from `base_s`, `attempts` tries.
-    litellm's own retry path needs tenacity, which we do not ship.
+    Free tiers cap requests-per-minute and tokens-per-day. Proactive pacing
+    (`min_interval_s`) keeps RPM caps from ever tripping; reactive exponential
+    backoff (attempts x base_s doubling) handles 429/5xx stragglers. litellm's
+    own retry path needs tenacity, which we do not ship.
     """
 
-    def __init__(self, inner, attempts: int = 6, base_s: float = 5.0, sleep=time.sleep):
+    def __init__(
+        self,
+        inner,
+        attempts: int = 6,
+        base_s: float = 5.0,
+        min_interval_s: float = 0.0,
+        sleep=time.sleep,
+        clock=time.monotonic,
+    ):
         self._inner = inner
         self._attempts = attempts
         self._base_s = base_s
+        self._min_interval_s = min_interval_s
         self._sleep = sleep
+        self._clock = clock
+        self._last_call: float | None = None
 
     def describe(self) -> tuple[str, str]:
         return self._inner.describe()
@@ -98,18 +117,24 @@ class RetryingGateway:
         return getattr(self._inner, "price_list", "unarchived")
 
     def complete(self, window):
+        # enforce a minimum gap between call starts (request-arrival pacing)
+        if self._last_call is not None:
+            wait = self._min_interval_s - (self._clock() - self._last_call)
+            if wait > 0:
+                self._sleep(wait)
+        self._last_call = self._clock()
         for attempt in range(self._attempts):
             try:
                 return self._inner.complete(window)
             except Exception as exc:
                 if not is_retryable(exc) or attempt == self._attempts - 1:
                     raise
-                wait = self._base_s * (2**attempt)
+                backoff = self._base_s * (2**attempt)
                 print(
                     f"[retry] transient provider error ({type(exc).__name__}); "
-                    f"backing off {wait:.0f}s (attempt {attempt + 1}/{self._attempts})"
+                    f"backing off {backoff:.0f}s (attempt {attempt + 1}/{self._attempts})"
                 )
-                self._sleep(wait)
+                self._sleep(backoff)
 
 
 def grade_live(family: str, plan, reply: str) -> bool:
@@ -277,7 +302,12 @@ def live_compare(
     """
     api_key = _require_key(provider)
     inner, model_id, model_string, price_list = resolve_gateway(provider, model, api_key)
-    gateway = RetryingGateway(inner)
+    gateway = RetryingGateway(
+        inner,
+        attempts=7,
+        base_s=10.0,
+        min_interval_s=MIN_CALL_INTERVAL_S.get(provider, 1.0),
+    )
     print(f"[live] provider={provider} model={model_id} price_list={price_list}")
 
     notes = {

@@ -265,6 +265,7 @@ def run_task(
 
     stats["success"] = (grader or grade)(family, plan, reply)
     stats["tokens"] = stats["input_tokens"]  # harness-compat total-token field
+    stats["final_reply"] = reply.strip()[:300]  # diagnosability for live runs
     stats["family"] = family
     stats["seed"] = seed
     return stats

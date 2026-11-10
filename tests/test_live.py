@@ -9,13 +9,14 @@ from __future__ import annotations
 from eval.live import (
     DEFAULT_LIVE_ARMS,
     RetryingGateway,
+    _run_arm_live,
     grade_live,
     is_rate_limit,
     plan_matrix,
     summarize_live,
 )
 from eval.provider_smoke import API_KEY_ENV, gateway_route
-from eval.tasks import build_task
+from eval.tasks import build_task, family_model
 
 
 class RateLimitError(Exception):
@@ -215,3 +216,48 @@ class TestSummarizeLive:
         out = summarize_live({"aperture_fixed": {"needle_qa": self._agg(1.0, 400)}})
         assert out["aperture_fixed"]["needle_qa"]["savings_frac"] == 0.0
         assert out["aperture_fixed"]["needle_qa"]["success_equal_or_better"] is False
+
+
+class TestRunArmLiveOffline:
+    """The incremental live runner, exercised with the offline synthetic
+    gateway (no network): file behavior, budget stop, manifest fields."""
+
+    def test_writes_jsonl_per_task_and_payload(self, tmp_path) -> None:
+        import json as _json
+        from pathlib import Path as _Path
+
+        model = family_model("needle_qa")
+        payload = _run_arm_live(
+            "full_history", "needle_qa", [0], model, tmp_path,
+            price_list="test-list", notes={}, budget=10**9,
+            spent={"tokens": 0}, pause_s=0,
+        )
+        assert payload["summary"]["n_tasks"] == 1
+        assert payload["summary"]["success_rate"] == 1.0
+        lines = _Path(payload["path"]).read_text().splitlines()
+        rows = [_json.loads(line) for line in lines]
+        assert len(rows) == 1 and rows[0]["success"] is True
+        json_payload = _json.loads(_Path(payload["path"]).with_suffix(".json").read_text())
+        assert json_payload["manifest"]["arm"] == "full_history"
+        assert json_payload["manifest"]["benchmark"] == "needle_qa"
+
+    def test_budget_zero_skips_all_tasks(self, tmp_path) -> None:
+        model = family_model("needle_qa")
+        notes: dict = {}
+        payload = _run_arm_live(
+            "aperture_fixed", "needle_qa", [0], model, tmp_path,
+            price_list="test-list", notes=notes, budget=0,
+            spent={"tokens": 0}, pause_s=0,
+        )
+        assert payload["summary"]["n_tasks"] == 0
+        assert notes.get("budget_capped") is True
+
+    def test_spent_accumulates(self, tmp_path) -> None:
+        model = family_model("needle_qa")
+        spent = {"tokens": 0}
+        _run_arm_live(
+            "full_history", "needle_qa", [0], model, tmp_path,
+            price_list="test-list", notes={}, budget=10**9,
+            spent=spent, pause_s=0,
+        )
+        assert spent["tokens"] > 0

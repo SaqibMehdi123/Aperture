@@ -11,8 +11,10 @@ Keep a Changelog; versioning is SemVer.
   tree as the offline comparison, but graded through a real provider gateway
   (Groq / Gemini free tiers via LiteLLM). Tolerant live grader (`grade_live`),
   model verification before run start (`verify_model`: retired catalog ids are
-  skipped with one tiny probe), litellm 429 retries, and a G1-style summary
-  (token savings at equal-or-better success vs full-history) per provider.
+  skipped with one tiny probe), harness-owned 429 backoff (`RetryingGateway`),
+  per-task incremental result writes (a provider-side death preserves every
+  completed task), and an input-token budget cap (`--max-input-tokens`) that
+  ends the run gracefully under free-tier daily limits.
 - **Deterministic task suite** (`eval/tasks.py`): three task families -
   needle QA (fact retention), policy compliance (constraint survival), batch
   aggregation (recent-evidence retention) - 20 eval tasks each plus a held-out

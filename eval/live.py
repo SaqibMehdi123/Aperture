@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from eval.arms import make_aperture
-from eval.harness import current_git_hash, run_arm
+from eval.harness import RunManifest, current_git_hash
 from eval.provider_smoke import (
     API_KEY_ENV,
     PREFERRED,
@@ -46,6 +46,7 @@ from eval.tasks import EVAL_SEEDS, FAMILIES, run_task
 RESULTS_ROOT = Path(__file__).resolve().parents[1] / "results" / "live"
 
 DEFAULT_LIVE_ARMS: tuple[str, ...] = ("full_history", "keep_recent_tuned", "aperture_fixed")
+DEFAULT_TOKEN_BUDGET = 150_000  # qwen free tier: 200k tokens/day
 
 _REFUSAL_RE = re.compile(
     r"cannot approve|can'?t approve|unable to approve|must be refused|must refuse|will not approve",
@@ -163,6 +164,88 @@ def resolve_gateway(provider: str, model: str | None, api_key: str):
     return gateway, model_id, model_string, f"{provider}-free-tier"
 
 
+def _run_arm_live(
+    arm: str,
+    family: str,
+    seeds: list[int],
+    model,
+    results_root: str | Path,
+    price_list: str,
+    notes: dict,
+    budget: int,
+    spent: dict,
+    pause_s: float = 2.0,
+) -> dict:
+    """One arm x family against a live provider, crash-resilient.
+
+    Every finished task is flushed to an append-only .jsonl immediately, so a
+    provider-side death (e.g. the free tier's daily token cap) preserves all
+    completed tasks. The canonical run-<stamp>.json payload is written at the
+    end like the offline harness. `spent["tokens"]` accumulates across arms;
+    once it reaches `budget` the remaining seeds are skipped and the manifest
+    records `budget_capped`.
+    """
+    from dataclasses import asdict
+
+    from aperture import __version__
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    out_dir = Path(results_root) / family / arm
+    out_dir.mkdir(parents=True, exist_ok=True)
+    jsonl_path = out_dir / f"run-{stamp}.jsonl"
+    rows: list[dict] = []
+    with jsonl_path.open("a", encoding="utf-8") as fh:
+        for seed in seeds:
+            if spent["tokens"] >= budget:
+                notes["budget_capped"] = True
+                break
+            stats = dict(run_task(family, seed, make_aperture(arm, model), grader=grade_live))
+            stats["seed"] = seed
+            rows.append(stats)
+            spent["tokens"] += int(stats["input_tokens"])
+            fh.write(json.dumps(stats, sort_keys=True) + "\n")
+            fh.flush()
+            if pause_s > 0:
+                time.sleep(pause_s)
+
+    n_success = sum(1 for r in rows if r["success"])
+    manifest = RunManifest(
+        git_hash=current_git_hash(),
+        arm=arm,
+        benchmark=family,
+        seeds=[r["seed"] for r in rows],
+        model_ids=[_model_id(model)],
+        price_list=price_list,
+        aperture_version=__version__,
+        started_at=datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        notes=notes,
+    )
+    payload = {
+        "manifest": asdict(manifest),
+        "summary": {
+            "n_tasks": len(rows),
+            "success_rate": round(n_success / len(rows), 6) if rows else 0.0,
+            "total_tokens": sum(int(r["input_tokens"]) for r in rows),
+            "total_cost_usd": round(sum(float(r["cost_usd"]) for r in rows), 6),
+        },
+        "per_seed": rows,
+    }
+    json_path = jsonl_path.with_suffix(".json")
+    if json_path.exists():  # append-only guard
+        raise RuntimeError(f"result collision: {json_path} exists")
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    payload["path"] = str(jsonl_path)
+    return payload
+
+
+def _model_id(model: object) -> str:
+    describe = getattr(model, "describe", None)
+    if callable(describe):
+        _, model_id = describe()
+        return model_id
+    return type(model).__name__
+
+
 def live_compare(
     provider: str,
     arms: tuple[str, ...] = DEFAULT_LIVE_ARMS,
@@ -170,42 +253,46 @@ def live_compare(
     seeds: tuple[int, ...] = EVAL_SEEDS[:2],
     model: str | None = None,
     results_root: str | Path = RESULTS_ROOT,
-    pause_s: float = 1.0,
+    pause_s: float = 2.0,
+    max_input_tokens: int = DEFAULT_TOKEN_BUDGET,
 ) -> dict[str, Any]:
-    """Run arms x families x seeds against a real provider; write results."""
+    """Run arms x families x seeds against a real provider; write results.
+
+    Stops early (gracefully, with a budget_capped summary) once the run's
+    cumulative input tokens reach `max_input_tokens` - free tiers carry a
+    daily token cap, and a capped-but-complete summary beats a dead job.
+    """
     api_key = _require_key(provider)
     inner, model_id, model_string, price_list = resolve_gateway(provider, model, api_key)
     gateway = RetryingGateway(inner)
     print(f"[live] provider={provider} model={model_id} price_list={price_list}")
 
+    notes = {
+        "provider": provider,
+        "model_string": model_string,
+        "grader": "grade_live (tolerant phrasing)",
+        "suite": "deterministic task suite, real gateway",
+    }
     per_arm: dict[str, dict[str, dict[str, Any]]] = {}
     matrix = plan_matrix(arms, families, seeds)
+    spent = {"tokens": 0}
     for family in families:
         for arm in arms:
             arm_seeds = [s for f, a, s in matrix if f == family and a == arm]
-
-            def task_fn(m, seed, _arm=arm, _family=family):
-                stats = run_task(_family, seed, make_aperture(_arm, m), grader=grade_live)
-                return stats
-
-            payload = run_arm(
+            payload = _run_arm_live(
                 arm,
                 family,
-                task_fn,
-                lambda: gateway,
-                seeds=arm_seeds,
-                results_root=results_root,
-                price_list=price_list,
-                notes={
-                    "provider": provider,
-                    "model_string": model_string,
-                    "grader": "grade_live (tolerant phrasing)",
-                    "suite": "deterministic task suite, real gateway",
-                },
+                arm_seeds,
+                gateway,
+                results_root,
+                price_list,
+                notes,
+                budget=max_input_tokens,
+                spent=spent,
+                pause_s=pause_s,
             )
             rows = payload["per_seed"]
             per_arm.setdefault(arm, {})[family] = _aggregate(rows)
-            time.sleep(pause_s)
 
     summary = {
         "manifest": {
@@ -217,6 +304,9 @@ def live_compare(
             "families": list(families),
             "seeds": list(seeds),
             "grader": "grade_live (tolerant phrasing)",
+            "input_token_budget": max_input_tokens,
+            "input_tokens_spent": spent["tokens"],
+            "budget_capped": spent["tokens"] >= max_input_tokens,
             "ran_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         },
         "arms": summarize_live(per_arm),
@@ -268,6 +358,12 @@ def main() -> None:
     parser.add_argument("--families", default=",".join(FAMILIES))
     parser.add_argument("--seeds", default="0,1")
     parser.add_argument("--pause-s", type=float, default=2.0)
+    parser.add_argument(
+        "--max-input-tokens",
+        type=int,
+        default=DEFAULT_TOKEN_BUDGET,
+        help="stop the run (gracefully) after this many cumulative input tokens",
+    )
     args = parser.parse_args()
 
     summary = live_compare(
@@ -277,6 +373,7 @@ def main() -> None:
         seeds=tuple(int(s) for s in args.seeds.split(",") if s.strip()),
         model=args.model,
         pause_s=args.pause_s,
+        max_input_tokens=args.max_input_tokens,
     )
     print("| arm | " + " | ".join(next(iter(summary["arms"].values())).keys()) + " |")
     for arm, fams in summary["arms"].items():

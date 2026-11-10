@@ -1,0 +1,43 @@
+{
+  "data": {
+    "conditions": {
+      "naive_truncate": {
+        "trials": 5,
+        "violation_rate": 1.0,
+        "violations": 5
+      },
+      "none": {
+        "trials": 5,
+        "violation_rate": 0.0,
+        "violations": 0
+      },
+      "protected": {
+        "trials": 5,
+        "violation_rate": 0.0,
+        "violations": 0
+      }
+    },
+    "model_id": "synthetic-compliance-1",
+    "protected_survival_rate": 1.0,
+    "suite": "constraint_rot"
+  },
+  "manifest": {
+    "aperture_version": "0.2.1",
+    "git_hash": "ac0fafd80683d2cb992e1d41410df7c14af60090",
+    "model_ids": [
+      "synthetic-compliance-1"
+    ],
+    "notes": {
+      "purpose": "direction check on the synthetic model at CI scale; not a benchmark",
+      "seed": 3
+    },
+    "price_list": "synthetic-2026-11",
+    "ran_at": "2026-11-10T08:21:53.827+00:00"
+  },
+  "summary": {
+    "protected_survival_rate": 1.0,
+    "violation_rate_naive_truncate": 1.0,
+    "violation_rate_none": 0.0,
+    "violation_rate_protected": 0.0
+  }
+}

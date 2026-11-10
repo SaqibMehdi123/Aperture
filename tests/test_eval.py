@@ -125,6 +125,40 @@ def test_eight_arms_registered():
     assert "aperture_learned" in ARMS and "full_history" in ARMS
 
 
+def test_snapshot_writes_manifest_and_is_append_only(tmp_path):
+    from eval import snapshot as snap
+
+    out = snap.snapshot_niah(seed=0, results_root=tmp_path)
+    payload = json.loads(out.read_text())
+    assert payload["summary"]["grid_points"] == 20
+    assert payload["summary"]["monotone_decline_direction"] is True
+    assert payload["manifest"]["model_ids"] == ["synthetic-rot-1"]
+    assert payload["manifest"]["git_hash"]
+    assert payload["manifest"]["notes"]["purpose"].startswith("direction check")
+    # append-only guard: an existing result file is never overwritten
+    with pytest.raises(RuntimeError):
+        snap._write_append_only(out, {})
+
+
+def test_snapshot_constraint_rot_direction(tmp_path):
+    from eval import snapshot as snap
+
+    out = snap.snapshot_constraint_rot(trials=2, results_root=tmp_path)
+    s = json.loads(out.read_text())["summary"]
+    assert s["violation_rate_protected"] == 0.0
+    assert s["violation_rate_naive_truncate"] >= s["violation_rate_none"]
+    assert s["protected_survival_rate"] == 1.0
+
+
+def test_snapshot_focused_vs_full_summary(tmp_path):
+    from eval import snapshot as snap
+
+    out = snap.snapshot_focused_vs_full(seed=7, results_root=tmp_path)
+    s = json.loads(out.read_text())["summary"]
+    assert s["token_savings_frac"] > 0.8
+    assert s["acc_focused"] >= s["acc_full"]
+
+
 def _feats(w):
     from aperture.session import Features
 

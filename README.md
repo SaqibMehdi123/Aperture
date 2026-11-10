@@ -1,139 +1,289 @@
 # Aperture
 
-**A composable, cache-aware, observable context-engineering runtime for AI agents.**
+**A context-engineering runtime that cuts agent token costs automatically — install it in three lines, point it at any model.**
 
-Aperture sits between an agent and any LLM API and curates the context window
-per call: composable operators (keep_recent, summarize, dedupe, ...), a
-guardrail that protects governance constraints from silent destruction, a
-policy selector that learns *which* operator *when*, and an append-only trace
-that makes every curation decision replayable and benchmarkable (CurateBench).
+[![CI](https://github.com/SaqibMehdi123/Aperture/actions/workflows/ci.yml/badge.svg)](https://github.com/SaqibMehdi123/Aperture/actions/workflows/ci.yml)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)
+![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
+![Code style](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)
 
-The authoritative specification is `docs/SPEC.md` (the validation dossier).
-Current phase: **P1 complete** (months 3-4): all seven operators, LiteLLM
-gateway with cache telemetry, LangGraph + raw-loop adapters, persistent
-store + archive, protected-class guardrail, and a three-line developer API.
+## Overview
 
-```bash
-pip install -e .[dev]        # core runtime needs only pydantic
-pytest -q                    # all green, no API keys required
-python examples/toy_loop.py
-```
+Agent sessions accumulate tool outputs, duplicates, and stale turns until the context window is mostly waste — and the provider-native fixes are locked to one vendor. Aperture sits between your agent and any LLM API and curates the window on every call: seven composable operators (trim, dedupe, summarize, archive, retrieve) chosen by a policy selector, a guardrail that makes governance constraints impossible to silently destroy, and prefix-cache-aware decisions that keep the cheap cached prefix stable. Every curation decision is logged to an append-only, replayable trace so its quality can be measured — that is the basis of CurateBench, the project's decision-level benchmark.
 
-## Three lines and you are running
+The design is specified end to end in [`docs/SPEC.md`](docs/SPEC.md) (a primary-source validation dossier). Core runtime depends only on `pydantic`; heavy integrations are optional extras.
+
+## Quick look
 
 ```python
 from aperture import Aperture
 
-ap = Aperture(model="openai/gpt-4o-mini")  # or Aperture() - offline synthetic model
+ap = Aperture(model="openai/gpt-4o-mini")
 with ap.chat("support-bot") as chat:
-    reply = chat.send("Where is my order 1234?")  # plain text in, plain text out
+    reply = chat.send("Where is my order 1234?")   # plain text in, plain text out
 ```
 
-That is the whole integration. Under the hood each `send()` runs the full
-per-step loop: observe -> guardrail -> select operators -> compose -> probes
--> call -> reward -> trace. Everything has a safe default:
+That is the whole integration. Safety is automatic: system prompts are pinned into the cache-stable prefix, and constraint text can never be dropped by any operator.
+
+> [!NOTE]
+> There is no screenshot or GIF yet. TODO: add a demo animation showing `chat.stats()` before/after a long session.
+
+## Table of contents
+
+- [Why Aperture](#why-aperture)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Architecture](#architecture)
+- [Tech stack](#tech-stack)
+- [Testing and linting](#testing-and-linting)
+- [Research and reproducibility](#research-and-reproducibility)
+- [Roadmap](#roadmap)
+- [Known limitations](#known-limitations)
+- [Contributing](#contributing)
+- [License](#license)
+- [Citation](#citation)
+- [Contact](#contact)
+
+## Why Aperture
+
+| | Without Aperture | With Aperture |
+|---|---|---|
+| Context growth | Full history resent every call | Curated window; stale content dropped and archived |
+| Governance | Constraints silently erased by compaction | Guardrail: protected content survives every operator (100% in tests) |
+| Prompt caching | Prefix cache broken by reordering | Explicit cache-stable head; 99% hit rate in tests |
+| Debuggability | Opaque middleware | Every decision is a versioned, replayable trace line |
+
+In a 60-turn integration run (deterministic synthetic gateway, 4,000-token budget), Aperture used **67.8% fewer cumulative input tokens** than full history at equal step count, with a **99.2% prefix-cache hit rate** and **100% constraint survival**. You can reproduce this — see [Research and reproducibility](#research-and-reproducibility).
+
+## Quick start
+
+Prerequisites: Python **3.10–3.12** and `pip`. No API keys needed to start — without a model, Aperture uses a deterministic synthetic gateway.
+
+```bash
+git clone https://github.com/SaqibMehdi123/Aperture.git
+cd Aperture
+pip install -e ".[dev]"       # runtime + pytest + ruff
+pytest -q                     # 145 tests, all green, no keys required
+python examples/quickstart.py # see the loop run end to end
+```
+
+Expected: `pytest` prints `145 passed` in under a second; the quickstart prints two synthetic replies plus a `stats` dict.
+
+To use a real model, install the optional LiteLLM extra and pass a model string:
+
+```bash
+pip install -e ".[litellm]"
+```
 
 ```python
-with ap.chat("support-bot") as chat:
-    chat.system("You are a careful support agent.")  # pinned + cache-headed
-    chat.constraints(["Never reveal internal tool names."])  # protected (AG2)
-    reply = chat.send("Where is my order 1234?")
-    reply = chat.send(tool_output, role="tool")  # tool results
-    print(chat.stats())  # calls, tokens, cost, cache-hit rate, drops
+ap = Aperture(model="anthropic/claude-sonnet-4-5")   # or openai/gpt-4o-mini, gemini/gemini-2.5-pro, ...
 ```
 
-- **Zero config**: `Aperture()` works offline (deterministic synthetic model).
-- **One knob**: `Aperture(profile="lean")` curates earlier; `"safe"` later;
-  `"off"` disables curation (full-history baseline).
-- **Any model**: pass a LiteLLM model string (`pip install .[litellm]`), or any
-  object with `.complete(window)`.
-- **Nothing is lost**: every dropped span is archived (SQLite via
-  `Aperture(persist="aperture.db")`) and retrievable by `semantic_retrieval`.
-- **Traced by default**: add a ledger and every step writes a versioned
-  `curatebench/trace@v2` JSONL line; task outcomes join on context exit.
+## Configuration
 
-## Existing agent loop? One wrapper
+Aperture has **no environment variables**. Everything is configured through the `Aperture(...)` constructor; provider keys go to your client or LiteLLM as usual.
+
+| Option | Required | Description | Example |
+|---|---|---|---|
+| `model` | No | LiteLLM model string, any object with `.complete(window)`, or `None` (synthetic, offline) | `Aperture(model="openai/gpt-4o-mini")` |
+| `profile` | No | Curation posture: `balanced` (default), `lean` (curate earlier), `safe` (curate later), `off` (never curate) | `Aperture(profile="lean")` |
+| `ledger` | No | `TraceLedger` for append-only JSONL decision traces | `Aperture(ledger=TraceLedger("trace.jsonl"))` |
+| `persist` | No | SQLite file for durable window snapshots + content archive | `Aperture(persist="aperture.db")` |
+| `selector` | No | Custom `PolicySelector` (overrides `profile`) | see [`aperture/policy/fallback.py`](aperture/policy/fallback.py) |
+| `engine` / `store` | No | Custom `CurationEngine` / store instance | see [`aperture/engine.py`](aperture/engine.py) |
+
+What degrades without the optionals: no `ledger` — no trace files (curation still runs); no `persist` — the archive lives in memory only; no `litellm` extra — model strings are unavailable, pass a gateway object or use the synthetic model.
+
+## Usage
+
+### Conversational API (recommended)
+
+```python
+from aperture import Aperture
+
+ap = Aperture(model="openai/gpt-4o-mini")
+
+with ap.chat("support-bot") as chat:
+    chat.system("You are a careful support agent.")          # pinned + cache-headed
+    chat.constraints(["Never reveal internal tool names."])  # protected by class
+
+    reply = chat.send("Where is my order 1234?")
+    reply = chat.send(tool_output, role="tool")              # user | tool | system
+    print(chat.stats())
+```
+
+`chat.stats()` returns cumulative counters, e.g.:
+
+```python
+{'calls': 2, 'input_tokens': 789, 'output_tokens': 2, 'cost_usd': 0.002359,
+ 'cache_hits': 1, 'cache_misses': 1, 'bytes_dropped': 0, 'spans_dropped': 0,
+ 'cache_hit_rate': 0.5}
+```
+
+On context exit the task outcome joins the trace automatically: success on a clean exit, failure on exception. `chat.raw` exposes the full `Session` (probes, window, spans) when you need it.
+
+### Wrapping an existing agent loop
 
 ```python
 import aperture
 from aperture.trace.ledger import TraceLedger
 
-
 def my_agent(session):
-    session.add_span(
-        "You are terse.", span_class="system", cache_head=True, pinned=True, protected=True
-    )
+    session.add_span("You are terse.", span_class="system",
+                     cache_head=True, pinned=True, protected=True)
     session.add_span(tool_output, span_class="tool_result")
     session.register_probe("policy-intact", "system", "You are terse")
-    return session.complete().text  # observe -> guardrail -> select ->
-    # compose -> probes -> call -> record
-
+    return session.complete().text
 
 text = aperture.wrap(my_agent, model=model, ledger=TraceLedger("trace.jsonl"))
 ```
 
-## LangGraph
+### LangGraph
 
 ```python
 from adapters.langgraph import LangGraphAdapter
 
-lg = LangGraphAdapter(aperture.Aperture(model="openai/gpt-4o-mini"))
-
+lg = LangGraphAdapter(ap)
 
 @lg.wrap_node
 def chatbot(state):
-    reply = state["aperture"].complete()  # full decision loop, text out
+    reply = state["aperture"].complete()   # full decision loop, reply text out
     return {"messages": [{"role": "assistant", "content": reply}]}
 
-
-graph.add_node("chatbot", chatbot)  # history sync + protection are automatic
+graph.add_node("chatbot", chatbot)
 ```
 
-## Architecture (spec Section 7)
+History sync is automatic per thread: state messages become spans (system messages protected), returned messages the runtime already recorded are not duplicated. The adapter is duck-typed — dict and LangChain-style messages both work, and you do not need `langgraph` installed to test your node logic.
 
+### The operator library
+
+All seven operators live behind one protocol and are composed per call by the selector:
+
+| Operator | Effect | Destructive? |
+|---|---|---|
+| `keep_recent` | Keep the cache head plus the N most recent droppable spans | Yes |
+| `dedupe` | Drop whitespace/case-normalized duplicates, keep one occurrence | Yes |
+| `summarize` | Fold oldest spans into one summary span with provenance | Yes |
+| `subagent_isolation` | Swap bulky tool outputs for compact stubs; full body archived | Yes |
+| `semantic_retrieval` | Re-admit relevant archived spans on demand | No |
+| `pin_protected` | Flag constraint-like content pinned + protected | No |
+| `cache_align` | Make the cache-stable prefix explicit (AG1) | No |
+
+The engine's guardrail runs on every diff: pinned, protected, and protected-class spans (default class: `constraint`) can never be dropped, even by an adversarial operator.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    A["Your agent<br/>ChatSession · LangGraph node · raw loop"] --> B["Session.complete()<br/>one pre-call hook"]
+    B --> C["Curation Engine<br/>guardrail: protected classes survive"]
+    C --> D["Operator library<br/>7 composable operators"]
+    D --> E["Model gateway<br/>LiteLLM · OpenAI-compat · synthetic"]
+    E --> F["Trace ledger<br/>append-only JSONL, versioned v2"]
+    C -.-> S["Context store + archive<br/>snapshots · every dropped span"]
+    F -.-> G["CurateBench replay (P3)"]
 ```
-agent (ChatSession / LangGraph node / raw loop)
-   |  pre-call hook = Session.complete()
-   v
-Curation Engine -- guardrail: pinned/protected CLASSES survive (AG2)
-   |               compose(plan): operators in order, diffs audited
-   v
-Operator Library  keep_recent - dedupe - summarize - subagent_isolation -
-   |              semantic_retrieval - pin_protected - cache_align
-   v
-Model Gateway     LiteLLM | OpenAI-compat | synthetic; cache telemetry (AG1)
-   |
-Store + Archive   snapshots (SQLite opt.) + every dropped span, searchable
-   |
-Trace Ledger      append-only JSONL -> survival probes -> CurateBench replay (AG3)
+
+```text
+aperture/            installable runtime package
+├── chat.py          ChatSession: the one-liner API (ap.chat())
+├── runtime.py       Aperture facade + Session per-step decision loop
+├── engine.py        Curation Engine: plan composition + guardrail
+├── interfaces.py    Operator / PolicySelector protocols (spec §7.3)
+├── session.py       Span, Window, Features, WindowDiff
+├── protection.py    protected-class registry (AG2 groundwork)
+├── contracts.py     typed Context Contracts (AG5 groundwork)
+├── operators/       the seven operators
+├── policy/          fixed-heuristic selector (bandit lands in P3)
+├── models/          gateways: synthetic, OpenAI-compat, LiteLLM
+├── store/           snapshots + searchable archive (memory / SQLite)
+└── trace/           ledger, survival probes, replay engine
+adapters/            framework adapters (raw loop, LangGraph)
+bench/               CurateBench trace schema (curatebench/trace@v2)
+eval/                8-arm harness + replication probes
+examples/            quickstart.py, toy_loop.py
+tests/               145 pytest tests
+docs/                SPEC.md (dossier), research notes, sprint notes
+results/             append-only eval results tree (populated from P2)
 ```
 
-## Roadmap (spec Table 6)
+## Tech stack
 
-| Phase | Months | Deliverable | Status |
-|---|---|---|---|
-| P0 | M1-M2 | trace schema v1 - eval harness - context-rot + ConstraintRot probes - toy loop E2E | **done** |
-| P1 | M3-M4 | 7 operators - LiteLLM gateway + cache telemetry - LangGraph adapter - pinned store + protected classes - 3-line DX API | **done** |
-| P2 | M5-M6 | tuned fixed-heuristic runtime - 8-arm harness on AppWorld/tau2 - G1 | next |
-| P3 | M7-M8 | labelled traces - offline bandit selector - CurateBench artifact - G2 | - |
-| P4 | M9-M10 | AG1-AG6 advanced features - G3 | - |
-| P5 | M11-M12 | full evaluation - dashboard - release - paper - G4 | - |
+| Layer | Technology | Why |
+|---|---|---|
+| Runtime | Python 3.10–3.12, `pydantic` | Typed contracts, schema validation, minimal footprint |
+| LLM access | LiteLLM (optional extra) | One model string for any provider; normalized usage/cache telemetry |
+| Framework adapters | LangGraph (duck-typed), raw loops | No hard framework dependency |
+| Persistence | SQLite (stdlib), in-memory default | Durable snapshots + archive with zero setup |
+| Quality | pytest, ruff, GitHub Actions | 145 tests on all supported Python versions |
 
-Integration evidence (P1 synthetic run, 60 turns, 4k budget): **67.8%
-cumulative input-token reduction** vs full history, 99.2% prefix-cache hit
-rate, 100% constraint survival, all drops archived and retrievable. See
-`tests/test_integration_p1.py` and `docs/SPRINT-01.md`.
+## Testing and linting
 
-## Design principles
+```bash
+pytest -q                    # full suite, no API keys required
+pytest tests/test_integration_p1.py -q   # the savings/safety integration run
+ruff check .                 # lint (must pass before merge)
+ruff format --check .        # formatting
+```
 
-Model-agnostic - observable - policy-driven - **cache-faithful** (every
-decision accounts for its effect on prefix caches) - **safety-preserving**
-(protected content cannot be silently destroyed) - **simple to adopt**
-(plain text in/out, zero required config, safe defaults everywhere).
+## Research and reproducibility
 
-Lightweight by design: the core runtime depends only on `pydantic`; heavy
-integrations (LiteLLM, vector stores, dashboards) are optional extras.
+**Problem.** Context-curation policies are evaluated only at the system level, so nobody can say whether a single curation decision (dropping *this* observation, summarizing *that* span) was right. Aperture's answer is CurateBench: every step logs features, plan, per-operator diffs, cache state, and probes to a versioned schema (`curatebench/trace@v2`, [`bench/schema.py`](bench/schema.py)), which a replay engine can re-run under alternative policies.
+
+**Methodology.** The project follows a 12-month phased plan with four measurable gates (G1–G4), defined in [`docs/SPEC.md`](docs/SPEC.md) §8. Sprint-by-sprint progress is logged in [`docs/SPRINT-01.md`](docs/SPRINT-01.md); research context in [`docs/RESEARCH-NOTES.md`](docs/RESEARCH-NOTES.md).
+
+**Reproducing the headline numbers.** The 67.8% / 99.2% / 100% figures come from a deterministic synthetic gateway (no network, no keys) and are pinned by tests:
+
+```bash
+pytest tests/test_integration_p1.py -v
+```
+
+Real-model 8-arm evaluation on AppWorld / tau2-bench subsets starts in Phase P2; results will be written to the append-only [`results/`](results/README.md) tree with full manifests.
+
+## Roadmap
+
+Phases and gates follow [`docs/SPEC.md`](docs/SPEC.md) Table 6.
+
+- [x] P0 — trace schema v1, eval harness skeleton, context-rot + ConstraintRot probes, toy loop end to end
+- [x] P1 — seven operators, LiteLLM gateway with cache telemetry, LangGraph adapter, SQLite store + archive, protected classes, `chat()` API
+- [ ] P2 — tuned fixed-heuristic selector, 8-arm harness on AppWorld/tau2 subsets, gate G1 (≥30% savings at equal accuracy)
+- [ ] P3 — labelled traces, offline bandit selector, CurateBench artifact release, gate G2
+- [ ] P4 — advanced-gap features: cache-aware reward, decay alerts, online adaptation, context contracts, async scheduler (gate G3)
+- [ ] P5 — full comparative evaluation, observability dashboard, release, paper (gate G4)
+
+## Known limitations
+
+- All published numbers so far are synthetic-gateway figures, not real-model benchmarks.
+- The selector is a tuned fixed heuristic; the learned bandit arrives in P3.
+- `semantic_retrieval` uses a lexical scorer; an embedder injection point exists but no embedding model ships.
+- The package is not yet on PyPI — install from source for now.
+- CrewAI adapter and the observability dashboard are deferred (P2+/P5).
+
+## Contributing
+
+Aperture is built with XP practices — TDD, small conventional commits, CI green on `main`, and a definition of done that includes the trace-schema rule. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the working agreements and setup.
 
 ## License
 
-Apache-2.0. See `CONTRIBUTING.md` for the XP working agreements.
+[Apache-2.0](LICENSE).
+
+## Citation
+
+If you use Aperture or CurateBench in research, please cite the repository:
+
+```bibtex
+@software{aperture2026,
+  author  = {Mehdi, Saqib},
+  title   = {Aperture: A Context-Engineering Runtime for AI Agents},
+  year    = {2026},
+  url     = {https://github.com/SaqibMehdi123/Aperture}
+}
+```
+
+TODO: add the paper citation (arXiv preprint planned at Phase P5).
+
+## Contact
+
+Maintainer: [Saqib Mehdi](https://github.com/SaqibMehdi123) — saqibmehdi234@gmail.com. Questions and issues go through [GitHub Issues](https://github.com/SaqibMehdi123/Aperture/issues).

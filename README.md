@@ -21,13 +21,25 @@ from aperture import Aperture
 
 ap = Aperture(model="openai/gpt-4o-mini")
 with ap.chat("support-bot") as chat:
-    reply = chat.send("Where is my order 1234?")   # plain text in, plain text out
+    reply = chat.send("Where is my order 1234?")  # plain text in, plain text out
 ```
 
 That is the whole integration. Safety is automatic: system prompts are pinned into the cache-stable prefix, and constraint text can never be dropped by any operator.
 
-> [!NOTE]
-> There is no screenshot or GIF yet. TODO: add a demo animation showing `chat.stats()` before/after a long session.
+The same loop, observed end to end — real output of `python examples/toy_loop.py` (no API keys):
+
+```text
+$ python examples/toy_loop.py
+assistant: 'ok'
+trace records written: 1
+schema:      curatebench/trace@v2
+features:    budget_used_frac=1.0 redundancy=0.0
+plan/diffs:  ['keep_recent'] dropped=18
+cache:       hit=False prefix_tokens=17 discount_usd=0.0
+probes:      [True]
+```
+
+Every model call produces one versioned trace line: the features the selector saw, the plan it chose, the per-operator diff, the cache state, and whether the governance probes survived.
 
 ## Table of contents
 
@@ -78,7 +90,9 @@ pip install -e ".[litellm]"
 ```
 
 ```python
-ap = Aperture(model="anthropic/claude-sonnet-4-5")   # or openai/gpt-4o-mini, gemini/gemini-2.5-pro, ...
+ap = Aperture(
+    model="anthropic/claude-sonnet-4-5"
+)  # or openai/gpt-4o-mini, gemini/gemini-2.5-pro, ...
 ```
 
 ## Configuration
@@ -106,20 +120,28 @@ from aperture import Aperture
 ap = Aperture(model="openai/gpt-4o-mini")
 
 with ap.chat("support-bot") as chat:
-    chat.system("You are a careful support agent.")          # pinned + cache-headed
+    chat.system("You are a careful support agent.")  # pinned + cache-headed
     chat.constraints(["Never reveal internal tool names."])  # protected by class
 
     reply = chat.send("Where is my order 1234?")
-    reply = chat.send(tool_output, role="tool")              # user | tool | system
+    reply = chat.send(tool_output, role="tool")  # user | tool | system
     print(chat.stats())
 ```
 
 `chat.stats()` returns cumulative counters, e.g.:
 
 ```python
-{'calls': 2, 'input_tokens': 789, 'output_tokens': 2, 'cost_usd': 0.002359,
- 'cache_hits': 1, 'cache_misses': 1, 'bytes_dropped': 0, 'spans_dropped': 0,
- 'cache_hit_rate': 0.5}
+{
+    "calls": 2,
+    "input_tokens": 789,
+    "output_tokens": 2,
+    "cost_usd": 0.002359,
+    "cache_hits": 1,
+    "cache_misses": 1,
+    "bytes_dropped": 0,
+    "spans_dropped": 0,
+    "cache_hit_rate": 0.5,
+}
 ```
 
 On context exit the task outcome joins the trace automatically: success on a clean exit, failure on exception. `chat.raw` exposes the full `Session` (probes, window, spans) when you need it.
@@ -130,12 +152,15 @@ On context exit the task outcome joins the trace automatically: success on a cle
 import aperture
 from aperture.trace.ledger import TraceLedger
 
+
 def my_agent(session):
-    session.add_span("You are terse.", span_class="system",
-                     cache_head=True, pinned=True, protected=True)
+    session.add_span(
+        "You are terse.", span_class="system", cache_head=True, pinned=True, protected=True
+    )
     session.add_span(tool_output, span_class="tool_result")
     session.register_probe("policy-intact", "system", "You are terse")
     return session.complete().text
+
 
 text = aperture.wrap(my_agent, model=model, ledger=TraceLedger("trace.jsonl"))
 ```
@@ -147,10 +172,12 @@ from adapters.langgraph import LangGraphAdapter
 
 lg = LangGraphAdapter(ap)
 
+
 @lg.wrap_node
 def chatbot(state):
-    reply = state["aperture"].complete()   # full decision loop, reply text out
+    reply = state["aperture"].complete()  # full decision loop, reply text out
     return {"messages": [{"role": "assistant", "content": reply}]}
+
 
 graph.add_node("chatbot", chatbot)
 ```
@@ -205,8 +232,8 @@ bench/               CurateBench trace schema (curatebench/trace@v2)
 eval/                8-arm harness + replication probes
 examples/            quickstart.py, toy_loop.py
 tests/               145 pytest tests
-docs/                SPEC.md (dossier), research notes, sprint notes
-results/             append-only eval results tree (populated from P2)
+docs/                SPEC.md (dossier), research notes
+results/             append-only probe snapshots + eval runs (real data, see results/README.md)
 ```
 
 ## Tech stack
@@ -232,7 +259,7 @@ ruff format --check .        # formatting
 
 **Problem.** Context-curation policies are evaluated only at the system level, so nobody can say whether a single curation decision (dropping *this* observation, summarizing *that* span) was right. Aperture's answer is CurateBench: every step logs features, plan, per-operator diffs, cache state, and probes to a versioned schema (`curatebench/trace@v2`, [`bench/schema.py`](bench/schema.py)), which a replay engine can re-run under alternative policies.
 
-**Methodology.** The project follows a 12-month phased plan with four measurable gates (G1–G4), defined in [`docs/SPEC.md`](docs/SPEC.md) §8. Sprint-by-sprint progress is logged in [`docs/SPRINT-01.md`](docs/SPRINT-01.md); research context in [`docs/RESEARCH-NOTES.md`](docs/RESEARCH-NOTES.md).
+**Methodology.** The project follows a 12-month phased plan with four measurable gates (G1–G4), defined in [`docs/SPEC.md`](docs/SPEC.md) §8. The prior-work grounding for every design choice is mapped in [`docs/RESEARCH-NOTES.md`](docs/RESEARCH-NOTES.md).
 
 **Reproducing the headline numbers.** The 67.8% / 99.2% / 100% figures come from a deterministic synthetic gateway (no network, no keys) and are pinned by tests:
 
@@ -246,7 +273,7 @@ Real-model 8-arm evaluation on AppWorld / tau2-bench subsets starts in Phase P2;
 
 Phases and gates follow [`docs/SPEC.md`](docs/SPEC.md) Table 6.
 
-- [x] P0 — trace schema v1, eval harness skeleton, context-rot + ConstraintRot probes, toy loop end to end
+- [x] P0 — trace schema v1, eval harness, context-rot + ConstraintRot probes, toy loop end to end
 - [x] P1 — seven operators, LiteLLM gateway with cache telemetry, LangGraph adapter, SQLite store + archive, protected classes, `chat()` API
 - [ ] P2 — tuned fixed-heuristic selector, 8-arm harness on AppWorld/tau2 subsets, gate G1 (≥30% savings at equal accuracy)
 - [ ] P3 — labelled traces, offline bandit selector, CurateBench artifact release, gate G2
@@ -281,8 +308,6 @@ If you use Aperture or CurateBench in research, please cite the repository:
   url     = {https://github.com/SaqibMehdi123/Aperture}
 }
 ```
-
-TODO: add the paper citation (arXiv preprint planned at Phase P5).
 
 ## Contact
 

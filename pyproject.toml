@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aperture-runtime"
-version = "0.2.0"
+version = "0.2.1"
 description = "Aperture - a composable, cache-aware, observable context-engineering runtime for AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,6 +37,8 @@ dev = [
 
 [project.urls]
 Repository = "https://github.com/SaqibMehdi123/Aperture"
+Issues = "https://github.com/SaqibMehdi123/Aperture/issues"
+Changelog = "https://github.com/SaqibMehdi123/Aperture/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["aperture", "adapters", "bench", "eval"]

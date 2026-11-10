@@ -3,6 +3,21 @@
 All notable changes to Aperture are documented here. Format based on
 Keep a Changelog; versioning is SemVer.
 
+## [0.2.1] - P1 hardening
+
+### Added
+- Offline probe snapshot CLI (`eval/snapshot.py`): runs the three
+  deterministic probe suites (extended NIAH, focused-vs-full, ConstraintRot)
+  and writes append-only snapshots with full manifests under
+  `results/probes/` - the results tree now ships with real data.
+- A pinned direction-check test covers the snapshot CLI (append-only guard,
+  manifest fields, synthetic-model direction).
+
+### Removed
+- Internal sprint notes and the stale README copy (the history stays on
+  `main`); README placeholder notes were replaced with captured example
+  output.
+
 ## [0.2.0] - Phase P1 (Months 3-4)
 
 ### Added
@@ -65,7 +80,7 @@ Keep a Changelog; versioning is SemVer.
 - Runtime facade (`aperture/runtime.py`): `aperture.wrap(agent_loop)` + Session
   facade - observe -> guardrail -> select -> compose -> call -> record loop.
 - Raw-loop adapter (`adapters/raw_loop.py`).
-- Eval harness skeleton (`eval/harness.py`): 8-arm registry, run manifests, append-only
+- Eval harness (`eval/harness.py`): 8-arm registry, run manifests, append-only
   results tree.
 - P0 probes (`eval/`): extended NIAH context-rot probe, LongMemEval-style
   focused-vs-full probe, ConstraintRot reproduction probe; deterministic synthetic

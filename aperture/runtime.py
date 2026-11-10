@@ -79,6 +79,16 @@ class Session:
         self._span_seq = 0
         self._recorded_steps: list[int] = []
         self.probe_specs: list[ProbeSpec] = []
+        self.stats = {
+            "calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "bytes_dropped": 0,
+            "spans_dropped": 0,
+        }
 
     def add_span(
         self,
@@ -165,6 +175,15 @@ class Session:
         )
         rt.selector.update(reward)  # 6 reward (fixed arms ignore; bandit learns in P3)
 
+        s = self.stats
+        s["calls"] += 1
+        s["input_tokens"] += resp.telemetry.input_tokens
+        s["output_tokens"] += resp.telemetry.output_tokens
+        s["cost_usd"] = round(s["cost_usd"] + resp.telemetry.cost_usd, 6)
+        s["cache_hits" if resp.telemetry.cache_hit else "cache_misses"] += 1
+        s["bytes_dropped"] += sum(d.bytes for diff in diffs for d in diff.dropped_spans)
+        s["spans_dropped"] += sum(len(diff.dropped_spans) for diff in diffs)
+
         provider, model_id, price_list = rt.describe_model()
         step = self.window.step
         rec = TraceRecord(
@@ -176,9 +195,7 @@ class Session:
                 "arm": self.arm,
                 "model": {"provider": provider, "id": model_id, "price_list": price_list},
                 "features": _features_dict(features),
-                "plan": [
-                    {"op": p.op, "params": dict(p.params), "order": p.order} for p in plan
-                ],
+                "plan": [{"op": p.op, "params": dict(p.params), "order": p.order} for p in plan],
                 "diffs": [_diff_dict(window_diff_to_record(d)) for d in diffs],
                 "cache": {
                     "prefix_tokens": resp.telemetry.prefix_tokens,
@@ -220,13 +237,21 @@ class Session:
         if self.runtime.ledger is None:
             return
         for step in self._recorded_steps:
-            self.runtime.ledger.write_outcome(
-                self.session_id, step, success, graded_at=_now_iso()
-            )
+            self.runtime.ledger.write_outcome(self.session_id, step, success, graded_at=_now_iso())
 
 
 def _diff_dict(diff: DiffRecord) -> dict[str, Any]:
     return diff.model_dump()
+
+
+PROFILES: dict[str, dict[str, int | float]] = {
+    # One-knob curation posture (DX): when to start curating and how much to
+    # keep. "off" never curates (threshold above the max budget fraction).
+    "balanced": {"threshold": 0.7, "keep_n": 12},
+    "lean": {"threshold": 0.45, "keep_n": 8},
+    "safe": {"threshold": 0.9, "keep_n": 24},
+    "off": {"threshold": 1.01, "keep_n": 12},
+}
 
 
 class Aperture:
@@ -237,6 +262,8 @@ class Aperture:
     synthetic gateway for tests/offline use).
     `persist` names a SQLite file for durable snapshots + archive; `store`
     accepts a pre-built store instance (takes precedence).
+    `profile` is the one-knob curation posture: "balanced" (default),
+    "lean", "safe", or "off"; an explicit `selector` overrides it.
     """
 
     def __init__(
@@ -247,10 +274,16 @@ class Aperture:
         engine: CurationEngine | None = None,
         store: Any = None,
         persist: str | None = None,
+        profile: str = "balanced",
     ) -> None:
         self.model = _resolve_model(model)
         self.ledger = ledger
-        self.selector: PolicySelector = selector if selector is not None else HeuristicSelector()
+        if selector is not None:
+            self.selector = selector
+        else:
+            if profile not in PROFILES:
+                raise ValueError(f"unknown profile {profile!r}; choose one of {sorted(PROFILES)}")
+            self.selector = HeuristicSelector(**PROFILES[profile])
         self.engine = engine if engine is not None else CurationEngine()
         if store is not None:
             self.store = store
@@ -262,6 +295,7 @@ class Aperture:
             from aperture.store import SpanStore
 
             self.store = SpanStore()
+        self._chat_counter = 0
 
     def describe_model(self) -> tuple[str, str, str]:
         describe = getattr(self.model, "describe", None)
@@ -275,6 +309,29 @@ class Aperture:
     @contextmanager
     def session(self, session_id: str, token_budget: int = 32768):
         yield Session(self, session_id, token_budget)
+
+    @contextmanager
+    def chat(self, session_id: str | None = None, token_budget: int = 32768):
+        """The one-liner API (spec 7.4): `with ap.chat() as chat: chat.send(...)`.
+
+        Plain text in/out; system + constraints helpers; stats(); the task
+        outcome joins the ledger automatically (success on clean exit, failure
+        on exception).
+        """
+        from aperture.chat import ChatSession
+
+        if session_id is None:
+            session_id = f"chat-{self._chat_counter}"
+        self._chat_counter += 1
+        chat = ChatSession(self, session_id, token_budget)
+        ok = True
+        try:
+            yield chat
+        except Exception:
+            ok = False
+            raise
+        finally:
+            chat.finish(ok)
 
     def wrap(
         self, agent_loop: Callable[[Session], Any], session_id: str, token_budget: int = 32768

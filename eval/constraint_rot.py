@@ -1,4 +1,4 @@
-"""ConstraintRot reproduction probe (spec Table 6 P0, weeks 5-6; Table 9 row
+"""ConstraintRot reproduction probe (spec Table 6; Table 9 row
 "ConstraintRot (reproduced)").
 
 Protocol: a policy constraint sits in the context, a long tool-output history

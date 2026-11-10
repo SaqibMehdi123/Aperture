@@ -1,6 +1,6 @@
 """Shared probe machinery: deterministic filler generation and synthetic probe
-models (spec Table 6 P0: context-rot replication must run in CI without API
-keys; the same harness runs real models via the ModelGateway protocol).
+models (spec: context-rot replication must run in CI without API keys; the
+same harness runs real models via the ModelGateway protocol).
 
 The synthetic models encode the *documented* failure direction (Chroma 2025:
 accuracy declines with input length and needle depth; arXiv:2606.22528:

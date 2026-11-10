@@ -1,4 +1,4 @@
-"""Context-rot replication probes (spec Table 6 P0; Table 9 rows LongMemEval
+"""Context-rot replication probes (spec Table 6; Table 9 rows LongMemEval
 and Extended NIAH).
 
 Two suites, both runnable against any ModelGateway:
@@ -9,8 +9,8 @@ Two suites, both runnable against any ModelGateway:
   question answered over the focused subset vs the full history isolates the
   rot a curation runtime must prevent, and yields the token delta.
 
-Outputs are RotCurves / summary dicts written as JSON; the replication memo
-(weeks 3-4) charts them against the published direction.
+Outputs are RotCurves / summary dicts written as JSON; the curves chart them
+against the published direction.
 """
 
 from __future__ import annotations

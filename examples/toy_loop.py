@@ -1,5 +1,5 @@
-"""P0 exit demo (weeks 1-2): the pip-installable skeleton wraps a toy loop
-end to end, writes a versioned trace, and shows cache + governance telemetry.
+"""Raw-loop demo: `aperture.wrap()` around a minimal agent loop, end to end -
+versioned trace, cache and governance telemetry in one printout.
 
 Run:  python examples/toy_loop.py
 """

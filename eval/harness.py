@@ -1,9 +1,9 @@
-"""Eval harness skeleton (spec Table 6 P0 "eval harness skeleton"; Section 9).
+"""Eval harness: every arm runs under the same harness, seeds, and grading
+(spec Section 9).
 
-Every arm runs under the same harness, seeds, and grading. Every run writes a
-manifest (git hash, arm, benchmark, seeds, model IDs, price list) into the
-results tree; the tree is append-only - results are never overwritten, and
-unfavorable results are committed too (spec 8.3).
+Every run writes a manifest (git hash, arm, benchmark, seeds, model IDs,
+price list) into the results tree; the tree is append-only - results are
+never overwritten, and unfavorable results are committed too (spec 8.3).
 """
 
 from __future__ import annotations

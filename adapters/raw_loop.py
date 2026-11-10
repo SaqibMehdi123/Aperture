@@ -1,5 +1,4 @@
-"""Raw-loop adapter: the minimal framework integration (spec weeks 1-2,
-"pip-installable skeleton wraps a toy loop end to end").
+"""Raw-loop adapter: the minimal framework integration.
 
 Any loop shaped `def loop(session)` works unchanged; `complete()` is the
 single pre-call hook every adapter reduces to.

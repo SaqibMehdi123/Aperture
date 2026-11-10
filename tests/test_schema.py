@@ -46,12 +46,13 @@ def test_strict_parsing_rejects_unknown_fields():
 
 
 def test_schema_version_string_is_frozen():
-    assert SCHEMA_VERSIONED == "curatebench/trace@v1"
+    # v2 (P1): additive diffs[].pinned[]; version bumped per the schema rule.
+    assert SCHEMA_VERSIONED == "curatebench/trace@v2"
 
 
 def test_json_schema_export():
     schema = trace_schema_json()
-    assert schema["$id"].endswith("trace@v1")
+    assert schema["$id"].endswith("trace@v2")
     assert "TraceRecord" in schema["title"] or "trace" in schema["title"].lower()
     props = schema["properties"]
     for group in (

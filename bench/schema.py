@@ -22,7 +22,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 SCHEMA_ID = "curatebench/trace"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2 (P1): additive `diffs[].pinned[]` flag annotations
 SCHEMA_VERSIONED = f"{SCHEMA_ID}@v{SCHEMA_VERSION}"
 
 
@@ -70,12 +70,24 @@ class NewSpanRecord(BaseModel):
     summary_of: list[str] = Field(default_factory=list)
 
 
+class PinnedSpanRecord(BaseModel):
+    """v2: flag annotation applied to a live span (pin_protected/cache_align)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    span_id: str
+    pinned: bool = False
+    protected: bool = False
+    cache_head: bool = False
+
+
 class DiffRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     op: str
     dropped: list[DroppedSpanRecord] = Field(default_factory=list)
     new_spans: list[NewSpanRecord] = Field(default_factory=list)
+    pinned: list[PinnedSpanRecord] = Field(default_factory=list)  # v2, additive
     cache_head_unchanged: bool = True
 
 
@@ -149,7 +161,7 @@ class TraceRecord(BaseModel):
 
 
 def trace_schema_json() -> dict[str, Any]:
-    """JSON Schema for the v1 trace record (benchmark artifact)."""
+    """JSON Schema for the v2 trace record (benchmark artifact)."""
     schema = TraceRecord.model_json_schema()
     schema["$id"] = f"https://curatebench.dev/schemas/trace@v{SCHEMA_VERSION}"
     schema["title"] = "CurateBench trace record"
@@ -157,6 +169,8 @@ def trace_schema_json() -> dict[str, Any]:
 
 
 # The Appendix A example, kept as the executable contract for tests and docs.
+# It is a v1 record: v2 is additive, so v1 records must keep parsing (and the
+# schema tests pin that backward compatibility explicitly).
 EXAMPLE_V1: dict[str, Any] = {
     "schema": "curatebench/trace@v1",
     "step": 47,

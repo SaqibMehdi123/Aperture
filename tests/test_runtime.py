@@ -35,7 +35,7 @@ def test_toy_loop_writes_valid_versioned_trace(tmp_path):
     records = list(ledger.records())
     assert len(records) == 2
     rec = records[0]
-    assert rec.schema_ == "curatebench/trace@v1"
+    assert rec.schema_ == "curatebench/trace@v2"
     assert rec.arm == "aperture_fixed"
     assert rec.session_id == "toy-001"
     assert rec.call.input_tokens > 0

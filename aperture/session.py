@@ -194,6 +194,21 @@ class NewSpan:
     bytes: int
     summary_of: tuple[str, ...] = ()
     content: str = ""  # runtime field; not serialized into the trace schema
+    span_class: str = SPAN_SUMMARY  # "summary" default; retrieval uses its own class
+
+
+@dataclass(frozen=True)
+class PinUpdate:
+    """Flag annotation for one span (schema v2 `diffs[].pinned[]`).
+
+    Non-destructive operators (pin_protected, cache_align) express their whole
+    effect as annotations; the engine applies them and the trace logs them.
+    """
+
+    span_id: str
+    pinned: bool = False
+    protected: bool = False
+    cache_head: bool = False
 
 
 @dataclass(frozen=True)
@@ -206,6 +221,7 @@ class WindowDiff:
     new_spans: tuple[NewSpan, ...] = ()
     cache_head_unchanged: bool = True
     probe_targets: tuple[str, ...] = ()
+    pinned: tuple[PinUpdate, ...] = ()  # schema v2: flag annotations
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -225,4 +241,13 @@ class WindowDiff:
                 for n in self.new_spans
             ],
             "cache_head_unchanged": self.cache_head_unchanged,
+            "pinned": [
+                {
+                    "span_id": p.span_id,
+                    "pinned": p.pinned,
+                    "protected": p.protected,
+                    "cache_head": p.cache_head,
+                }
+                for p in self.pinned
+            ],
         }

@@ -25,8 +25,10 @@ def register(op: type) -> type:
 
 def _load_builtins() -> None:
     from aperture.operators import (  # noqa: F401 - built-ins register on import
+        cache_align,
         dedupe,
         keep_recent,
+        pin_protected,
         summarize,
     )
 

@@ -68,6 +68,15 @@ def window_diff_to_record(diff: WindowDiff) -> DiffRecord:
             {"span_id": n.span_id, "bytes": n.bytes, "summary_of": list(n.summary_of)}
             for n in diff.new_spans
         ],
+        pinned=[
+            {
+                "span_id": p.span_id,
+                "pinned": p.pinned,
+                "protected": p.protected,
+                "cache_head": p.cache_head,
+            }
+            for p in diff.pinned
+        ],
         cache_head_unchanged=diff.cache_head_unchanged,
     )
 

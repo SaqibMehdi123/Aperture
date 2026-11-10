@@ -10,11 +10,11 @@ trace ledger.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import replace
 
 from aperture.interfaces import PlannedOp
 from aperture.protection import ProtectedClasses
 from aperture.session import (
-    SPAN_SUMMARY,
     Features,
     NewSpan,
     Span,
@@ -48,9 +48,9 @@ def enforce_guardrail(
     if not vetoed:
         return diff
     kept_drops = tuple(d for d in diff.dropped_spans if d.span_id not in vetoed)
-    probe_targets = tuple(
-        t for t in diff.probe_targets if t not in vetoed
-    ) + tuple(vetoed)  # vetoed spans become probe targets: prove they survived
+    probe_targets = tuple(t for t in diff.probe_targets if t not in vetoed) + tuple(
+        vetoed
+    )  # vetoed spans become probe targets: prove they survived
     return WindowDiff(
         op=diff.op,
         kept_spans=diff.kept_spans,
@@ -62,7 +62,8 @@ def enforce_guardrail(
 
 
 def apply_diff(window: Window, diff: WindowDiff) -> Window:
-    """Return the successor window: drop the diff's spans, add its new spans."""
+    """Return the successor window: drop the diff's spans, add its new spans,
+    and apply its flag annotations (pin/protect/cache_head)."""
     dropped_ids = {d.span_id for d in diff.dropped_spans}
     spans = [s for s in window.spans if s.span_id not in dropped_ids]
     for new in diff.new_spans:
@@ -71,12 +72,26 @@ def apply_diff(window: Window, diff: WindowDiff) -> Window:
         spans.append(
             Span(
                 span_id=new.span_id,
-                span_class=SPAN_SUMMARY,
+                span_class=new.span_class,
                 content=new.content,
                 created_step=window.step,
                 summary_of=new.summary_of,
             )
         )
+    flag_updates = {p.span_id: p for p in diff.pinned}
+    if flag_updates:
+        applied = []
+        for s in spans:
+            p = flag_updates.get(s.span_id)
+            if p is not None:
+                s = replace(
+                    s,
+                    pinned=p.pinned or s.pinned,
+                    protected=p.protected or s.protected,
+                    cache_head=p.cache_head or s.cache_head,
+                )
+            applied.append(s)
+        spans = applied
     return Window(token_budget=window.token_budget, spans=spans, step=window.step)
 
 
@@ -128,9 +143,7 @@ class CurationEngine:
         return current, diffs
 
 
-def new_span_from_summary(
-    span_id: str, content: str, summary_of: Iterable[str]
-) -> NewSpan:
+def new_span_from_summary(span_id: str, content: str, summary_of: Iterable[str]) -> NewSpan:
     return NewSpan(
         span_id=span_id,
         bytes=len(content.encode("utf-8")),

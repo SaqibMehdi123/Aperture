@@ -64,6 +64,12 @@ Keep a Changelog; versioning is SemVer.
   cannot-approve-only regex under-credited; denied/declined/refused (word-
   bounded) and cannot/will-not + optional "be" + approved now count, while
   the approval-violation negative check still wins.
+- **Live-eval findings note** (`docs/LIVE-FINDINGS.md`) + window-state replay
+  probe (`scripts/needle_window_probe.py`): documents the verified needle_qa
+  parity-break mechanism on real models (facts truncated -> models guess or
+  echo filler instead of "unknown" -> retrieval retry never fires; archive
+  ranking proven healthy), the aggregate baseline instability, and the P3
+  directions (evidence-aware re-admission, declarative-fact protection).
 
 ### Offline results (see README "Results")
 - `aperture_fixed`: 39-58% savings at 100% success, 100% of curation

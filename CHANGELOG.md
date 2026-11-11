@@ -13,6 +13,10 @@ Keep a Changelog; versioning is SemVer.
   provider (min savings at equal-or-better success, partial grids flagged
   via cell coverage). Lets gap-fill retries compose into one final table
   without re-spending free-tier tokens.
+- **Optional model pin on the live-eval workflow** (`model` dispatch input):
+  free-tier capacity for the catalog-auto-picked preview model comes and
+  goes; a retry can pin the model id that worked last instead of re-rolling
+  the catalog pick.
 - **Live real-model arm runs** (`python -m eval.live` + dispatchable
   `live-eval` workflow): the same uniform loop, arms, and append-only results
   tree as the offline comparison, but graded through a real provider gateway
@@ -55,6 +59,11 @@ Keep a Changelog; versioning is SemVer.
   `[:-0]` slicing); the guardrail still vetoes protected drops.
 - Task-loop retrieval re-admits each archived hit as its own span (merged
   re-admission cross-contaminated aggregate sums).
+- **Live refusal grader vocabulary widened** (`grade_live`): Groq live runs
+  produced compliant refusals phrased "Refund Denied"/"declined" that the
+  cannot-approve-only regex under-credited; denied/declined/refused (word-
+  bounded) and cannot/will-not + optional "be" + approved now count, while
+  the approval-violation negative check still wins.
 
 ### Offline results (see README "Results")
 - `aperture_fixed`: 39-58% savings at 100% success, 100% of curation

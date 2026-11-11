@@ -1,0 +1,47 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arm": "full_history",
+    "benchmark": "needle_qa",
+    "git_hash": "5b0f83fa1ed5b43eb3ddb2e60e69952521a667b1",
+    "model_ids": [
+      "groq/qwen/qwen3.8-27b"
+    ],
+    "notes": {
+      "grader": "grade_live (tolerant phrasing)",
+      "model_string": "groq/qwen/qwen3.8-27b",
+      "provider": "groq",
+      "suite": "deterministic task suite, real gateway"
+    },
+    "price_list": "groq-free-tier",
+    "seeds": [
+      0
+    ],
+    "started_at": "2026-11-11T11:48:48.041+00:00"
+  },
+  "per_seed": [
+    {
+      "bytes_dropped": 0,
+      "cache_hit_rate": 0.1111,
+      "cache_hits": 2,
+      "cache_misses": 16,
+      "calls": 18,
+      "cost_usd": 0.0,
+      "family": "needle_qa",
+      "final_reply": "1051",
+      "input_tokens": 27776,
+      "output_tokens": 27,
+      "probes_failed": 0,
+      "seed": 0,
+      "spans_dropped": 0,
+      "success": true,
+      "tokens": 27776
+    }
+  ],
+  "summary": {
+    "n_tasks": 1,
+    "success_rate": 1.0,
+    "total_cost_usd": 0.0,
+    "total_tokens": 27776
+  }
+}

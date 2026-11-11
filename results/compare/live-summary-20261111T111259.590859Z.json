@@ -1,0 +1,129 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arms": [
+      "full_history",
+      "keep_recent_tuned",
+      "aperture_fixed"
+    ],
+    "families": [
+      "needle_qa",
+      "policy_compliance",
+      "aggregate_batch"
+    ],
+    "git_hash": "2c76251c0fc926c8bca932851e71d6d4610ccbaf",
+    "note": "aggregated from disk (latest complete run per cell); no network calls; partial grids flagged in g1_live/coverage",
+    "providers": [
+      "gemini"
+    ],
+    "ran_at": "2026-11-11T11:12:59.590+00:00",
+    "source_tree": "/home/z/my-project/aperture/results/live"
+  },
+  "providers": {
+    "gemini": {
+      "arms": {
+        "aperture_fixed": {
+          "needle_qa": {
+            "cache_hit_rate": 0.0,
+            "calls": 18,
+            "cost_usd": 0.0,
+            "input_tokens": 9711,
+            "n_tasks": 1,
+            "output_tokens": 328,
+            "probes_failed": 0,
+            "savings_frac": 0.6,
+            "success_equal_or_better": false,
+            "success_rate": 0.0
+          },
+          "policy_compliance": {
+            "cache_hit_rate": 0.0,
+            "calls": 14,
+            "cost_usd": 0.0,
+            "input_tokens": 10889,
+            "n_tasks": 1,
+            "output_tokens": 871,
+            "probes_failed": 0,
+            "savings_frac": 0.5877,
+            "success_equal_or_better": true,
+            "success_rate": 1.0
+          }
+        },
+        "full_history": {
+          "needle_qa": {
+            "cache_hit_rate": 0.0,
+            "calls": 18,
+            "cost_usd": 0.0,
+            "input_tokens": 24275,
+            "n_tasks": 1,
+            "output_tokens": 382,
+            "probes_failed": 0,
+            "savings_frac": 0.0,
+            "success_equal_or_better": true,
+            "success_rate": 1.0
+          },
+          "policy_compliance": {
+            "cache_hit_rate": 0.0,
+            "calls": 14,
+            "cost_usd": 0.0,
+            "input_tokens": 26410,
+            "n_tasks": 1,
+            "output_tokens": 981,
+            "probes_failed": 0,
+            "savings_frac": 0.0,
+            "success_equal_or_better": true,
+            "success_rate": 1.0
+          }
+        }
+      },
+      "coverage": {
+        "aperture_fixed": {
+          "aggregate_batch": null,
+          "needle_qa": {
+            "model_string": "openai/gemini-3.1-flash-lite-preview",
+            "run_file": "run-20261110T160611.207894Z.json",
+            "started_at": "2026-11-10T16:13:59.540+00:00"
+          },
+          "policy_compliance": {
+            "model_string": "openai/gemini-3.1-flash-lite-preview",
+            "run_file": "run-20261110T161750.281840Z.json",
+            "started_at": "2026-11-10T16:59:59.562+00:00"
+          }
+        },
+        "full_history": {
+          "aggregate_batch": null,
+          "needle_qa": {
+            "model_string": "openai/gemini-3.1-flash-lite-preview",
+            "run_file": "run-20261110T160147.106328Z.json",
+            "started_at": "2026-11-10T16:06:11.207+00:00"
+          },
+          "policy_compliance": {
+            "model_string": "openai/gemini-3.1-flash-lite-preview",
+            "run_file": "run-20261110T161359.541216Z.json",
+            "started_at": "2026-11-10T16:17:50.281+00:00"
+          }
+        },
+        "keep_recent_tuned": {
+          "aggregate_batch": null,
+          "needle_qa": null,
+          "policy_compliance": null
+        }
+      },
+      "g1_live": {
+        "aperture_fixed": {
+          "cells_expected": 3,
+          "cells_with_data": 2,
+          "complete": false,
+          "min_savings_frac": 0.5877,
+          "success_equal_or_better": false
+        },
+        "keep_recent_tuned": {
+          "cells_expected": 3,
+          "cells_with_data": 0,
+          "complete": false,
+          "min_savings_frac": null,
+          "success_equal_or_better": null
+        }
+      }
+    }
+  }
+}

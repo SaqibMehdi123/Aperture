@@ -6,6 +6,13 @@ Keep a Changelog; versioning is SemVer.
 ## [0.3.0] - Phase P2 (tuned selector + offline benchmark)
 
 ### Added
+- **Cross-dispatch live aggregator** (`python -m eval.compare_live`, no
+  network): re-aggregates the append-only `results/live` tree from disk -
+  latest complete run per (provider, arm, family) cell, incomplete runs never
+  shadow complete ones - and emits the same savings / G1-live headline per
+  provider (min savings at equal-or-better success, partial grids flagged
+  via cell coverage). Lets gap-fill retries compose into one final table
+  without re-spending free-tier tokens.
 - **Live real-model arm runs** (`python -m eval.live` + dispatchable
   `live-eval` workflow): the same uniform loop, arms, and append-only results
   tree as the offline comparison, but graded through a real provider gateway

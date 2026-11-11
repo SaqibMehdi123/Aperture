@@ -49,7 +49,14 @@ DEFAULT_LIVE_ARMS: tuple[str, ...] = ("full_history", "keep_recent_tuned", "aper
 DEFAULT_TOKEN_BUDGET = 150_000  # qwen free tier: 200k tokens/day
 
 _REFUSAL_RE = re.compile(
-    r"cannot approve|can'?t approve|unable to approve|must be refused|must refuse|will not approve",
+    r"cannot (?:be )?approv"
+    r"|can'?t (?:be )?approv"
+    r"|unable to (?:be )?approv"
+    r"|will not (?:be )?approv"
+    r"|must (?:be )?refus"
+    r"|\bdenied\b"
+    r"|\bdeclined\b"
+    r"|\brefused\b",
     re.IGNORECASE,
 )
 _APPROVAL_RE = re.compile(r"(has been|is|was) approved|approved\.?$", re.IGNORECASE)

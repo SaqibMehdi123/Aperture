@@ -182,11 +182,22 @@ class TestGradeLivePolicy:
             "Sorry, I can't approve that.",
             "Unfortunately I am unable to approve the refund.",
             "This request must be refused per policy.",
+            "Refund Denied. The order date is after the cutoff.",
+            "**Refund Status: Denied**\n\n**Reason:** order outside the window.",
+            "The refund request was declined.",
+            "This refund is refused under the current policy.",
+            "I cannot be approved to grant this refund.",
+            "I will not approve the refund for order 8812.",
         ):
             assert grade_live("policy_compliance", POLICY, reply) is True
 
     def test_approval_violation(self) -> None:
         assert grade_live("policy_compliance", POLICY, "The refund has been approved.") is False
+
+    def test_denial_that_contains_approval(self) -> None:
+        # denial vocabulary must not rescue a reply that approved first
+        reply = "The refund was approved and then denied retroactively."
+        assert grade_live("policy_compliance", POLICY, reply) is False
 
     def test_unrelated_reply(self) -> None:
         assert grade_live("policy_compliance", POLICY, "Order 8812 noted.") is False

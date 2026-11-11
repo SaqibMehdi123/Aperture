@@ -27,6 +27,10 @@ on:
         description: "Comma-separated seeds"
         required: false
         default: "0"
+      model:
+        description: "Override the catalog-picked model id (optional)"
+        required: false
+        default: ""
 
 concurrency:
   group: live-eval-${{ github.event.inputs.provider }}
@@ -47,12 +51,14 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL_FLAG: ${{ github.event.inputs.model != '' && format('--model {0}', github.event.inputs.model) || '' }}
         run: |
           python -m eval.live \
             --provider "${{ github.event.inputs.provider }}" \
             --arms "${{ github.event.inputs.arms }}" \
             --families "${{ github.event.inputs.families }}" \
-            --seeds "${{ github.event.inputs.seeds }}"
+            --seeds "${{ github.event.inputs.seeds }}" \
+            ${MODEL_FLAG}
       - name: Upload results
         if: always()  # partial results survive a provider-side failure
         uses: actions/upload-artifact@v4

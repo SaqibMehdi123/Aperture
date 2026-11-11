@@ -1,0 +1,47 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arm": "keep_recent_tuned",
+    "benchmark": "policy_compliance",
+    "git_hash": "6c9c794f24c7ade91ef1726746e1f2d7786a61b8",
+    "model_ids": [
+      "openai/gemini-3.1-flash-lite-preview"
+    ],
+    "notes": {
+      "grader": "grade_live (tolerant phrasing)",
+      "model_string": "openai/gemini-3.1-flash-lite-preview",
+      "provider": "gemini",
+      "suite": "deterministic task suite, real gateway"
+    },
+    "price_list": "gemini-free-tier",
+    "seeds": [
+      0
+    ],
+    "started_at": "2026-11-11T14:01:02.121+00:00"
+  },
+  "per_seed": [
+    {
+      "bytes_dropped": 12775,
+      "cache_hit_rate": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 14,
+      "calls": 14,
+      "cost_usd": 0.0,
+      "family": "policy_compliance",
+      "final_reply": "I cannot approve a refund for order 8812. According to the refund policy, refunds are only approved if the order date is before 2027-01-01. Since this order was placed on 2027-02-01, it does not qualify.\n\nRegarding [case 5], the text provided does not contain an order date. Please provide the order ",
+      "input_tokens": 10682,
+      "output_tokens": 843,
+      "probes_failed": 0,
+      "seed": 0,
+      "spans_dropped": 21,
+      "success": true,
+      "tokens": 10682
+    }
+  ],
+  "summary": {
+    "n_tasks": 1,
+    "success_rate": 1.0,
+    "total_cost_usd": 0.0,
+    "total_tokens": 10682
+  }
+}

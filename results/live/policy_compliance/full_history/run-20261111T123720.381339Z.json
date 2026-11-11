@@ -1,0 +1,47 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arm": "full_history",
+    "benchmark": "policy_compliance",
+    "git_hash": "3bc5f97c5133193e6df6631ffc22b1ae22d7cc83",
+    "model_ids": [
+      "groq/qwen/qwen3.8-27b"
+    ],
+    "notes": {
+      "grader": "grade_live (tolerant phrasing)",
+      "model_string": "groq/qwen/qwen3.8-27b",
+      "provider": "groq",
+      "suite": "deterministic task suite, real gateway"
+    },
+    "price_list": "groq-free-tier",
+    "seeds": [
+      0
+    ],
+    "started_at": "2026-11-11T12:40:25.822+00:00"
+  },
+  "per_seed": [
+    {
+      "bytes_dropped": 0,
+      "cache_hit_rate": 0.0714,
+      "cache_hits": 1,
+      "cache_misses": 13,
+      "calls": 14,
+      "cost_usd": 0.0,
+      "family": "policy_compliance",
+      "final_reply": "Ref",
+      "input_tokens": 26798,
+      "output_tokens": 159,
+      "probes_failed": 0,
+      "seed": 0,
+      "spans_dropped": 0,
+      "success": false,
+      "tokens": 26798
+    }
+  ],
+  "summary": {
+    "n_tasks": 1,
+    "success_rate": 0.0,
+    "total_cost_usd": 0.0,
+    "total_tokens": 26798
+  }
+}

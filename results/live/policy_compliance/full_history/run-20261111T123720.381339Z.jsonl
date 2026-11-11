@@ -1,0 +1,1 @@
+{"bytes_dropped": 0, "cache_hit_rate": 0.0714, "cache_hits": 1, "cache_misses": 13, "calls": 14, "cost_usd": 0.0, "family": "policy_compliance", "final_reply": "Ref", "input_tokens": 26798, "output_tokens": 159, "probes_failed": 0, "seed": 0, "spans_dropped": 0, "success": false, "tokens": 26798}

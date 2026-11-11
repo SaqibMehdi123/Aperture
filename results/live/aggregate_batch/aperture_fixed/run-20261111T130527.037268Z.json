@@ -1,0 +1,47 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arm": "aperture_fixed",
+    "benchmark": "aggregate_batch",
+    "git_hash": "6c9c794f24c7ade91ef1726746e1f2d7786a61b8",
+    "model_ids": [
+      "openai/gemini-3.1-flash-lite-preview"
+    ],
+    "notes": {
+      "grader": "grade_live (tolerant phrasing)",
+      "model_string": "openai/gemini-3.1-flash-lite-preview",
+      "provider": "gemini",
+      "suite": "deterministic task suite, real gateway"
+    },
+    "price_list": "gemini-free-tier",
+    "seeds": [
+      0
+    ],
+    "started_at": "2026-11-11T13:10:48.279+00:00"
+  },
+  "per_seed": [
+    {
+      "bytes_dropped": 21198,
+      "cache_hit_rate": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 19,
+      "calls": 19,
+      "cost_usd": 0.0,
+      "family": "aggregate_batch",
+      "final_reply": "1313.7",
+      "input_tokens": 21979,
+      "output_tokens": 5297,
+      "probes_failed": 0,
+      "seed": 0,
+      "spans_dropped": 31,
+      "success": false,
+      "tokens": 21979
+    }
+  ],
+  "summary": {
+    "n_tasks": 1,
+    "success_rate": 0.0,
+    "total_cost_usd": 0.0,
+    "total_tokens": 21979
+  }
+}

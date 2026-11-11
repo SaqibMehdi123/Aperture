@@ -1,0 +1,1 @@
+{"bytes_dropped": 19812, "cache_hit_rate": 0.0, "cache_hits": 0, "cache_misses": 19, "calls": 19, "cost_usd": 0.0, "family": "aggregate_batch", "final_reply": "17", "input_tokens": 21022, "output_tokens": 4829, "probes_failed": 0, "seed": 0, "spans_dropped": 31, "success": false, "tokens": 21022}

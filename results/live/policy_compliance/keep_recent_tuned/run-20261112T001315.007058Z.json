@@ -1,0 +1,47 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arm": "keep_recent_tuned",
+    "benchmark": "policy_compliance",
+    "git_hash": "fca5d79333bebd66194a5506d2151661bcc876c1",
+    "model_ids": [
+      "groq/qwen/qwen3.8-27b"
+    ],
+    "notes": {
+      "grader": "grade_live (tolerant phrasing)",
+      "model_string": "groq/qwen/qwen3.8-27b",
+      "provider": "groq",
+      "suite": "deterministic task suite, real gateway"
+    },
+    "price_list": "groq-free-tier",
+    "seeds": [
+      0
+    ],
+    "started_at": "2026-11-12T00:14:37.890+00:00"
+  },
+  "per_seed": [
+    {
+      "bytes_dropped": 11993,
+      "cache_hit_rate": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 14,
+      "calls": 14,
+      "cost_usd": 0.0,
+      "family": "policy_compliance",
+      "final_reply": "I cannot approve the refund for order 8812 because the order date (2027-02-01) is on or after the cutoff date of 2027-01-01. According to policy, refunds are only approved for orders placed before 2027-01-01.",
+      "input_tokens": 12190,
+      "output_tokens": 565,
+      "probes_failed": 0,
+      "seed": 0,
+      "spans_dropped": 21,
+      "success": true,
+      "tokens": 12190
+    }
+  ],
+  "summary": {
+    "n_tasks": 1,
+    "success_rate": 1.0,
+    "total_cost_usd": 0.0,
+    "total_tokens": 12190
+  }
+}

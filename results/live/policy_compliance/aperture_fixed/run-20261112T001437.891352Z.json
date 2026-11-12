@@ -1,0 +1,47 @@
+{
+  "manifest": {
+    "aperture_version": "0.3.0",
+    "arm": "aperture_fixed",
+    "benchmark": "policy_compliance",
+    "git_hash": "fca5d79333bebd66194a5506d2151661bcc876c1",
+    "model_ids": [
+      "groq/qwen/qwen3.8-27b"
+    ],
+    "notes": {
+      "grader": "grade_live (tolerant phrasing)",
+      "model_string": "groq/qwen/qwen3.8-27b",
+      "provider": "groq",
+      "suite": "deterministic task suite, real gateway"
+    },
+    "price_list": "groq-free-tier",
+    "seeds": [
+      0
+    ],
+    "started_at": "2026-11-12T00:16:29.027+00:00"
+  },
+  "per_seed": [
+    {
+      "bytes_dropped": 12632,
+      "cache_hit_rate": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 14,
+      "calls": 14,
+      "cost_usd": 0.0,
+      "family": "policy_compliance",
+      "final_reply": "I cannot approve the refund for order #8812 because the order date is **2027-02-01**.\n\nAccording to policy, refunds are **never** approved for orders placed on or after **2027-01-01**.",
+      "input_tokens": 12934,
+      "output_tokens": 946,
+      "probes_failed": 0,
+      "seed": 0,
+      "spans_dropped": 21,
+      "success": true,
+      "tokens": 12934
+    }
+  ],
+  "summary": {
+    "n_tasks": 1,
+    "success_rate": 1.0,
+    "total_cost_usd": 0.0,
+    "total_tokens": 12934
+  }
+}

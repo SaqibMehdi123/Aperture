@@ -24,6 +24,7 @@ from aperture.engine import CurationEngine
 from aperture.interfaces import PolicySelector, Reward
 from aperture.models.gateway import ModelResponse, SyntheticGateway
 from aperture.policy.fallback import HeuristicSelector
+from aperture.readmit import READMIT_TOP_K, readmit_plan
 from aperture.session import (
     SPAN_TOOL_RESULT,
     Features,
@@ -89,6 +90,8 @@ class Session:
             "bytes_dropped": 0,
             "spans_dropped": 0,
             "probes_failed": 0,
+            "readmits": 0,
+            "readmit_spans": 0,
         }
 
     def add_span(
@@ -162,6 +165,26 @@ class Session:
                             self.window.step,
                             src.bytes,
                         )
+
+        # P3-1 evidence-aware proactive re-admission: if the latest user turn
+        # references entities/values the live window no longer grounds and the
+        # archive holds dropped content that grounds them, restore the top
+        # hits BEFORE the call. Keyed on evidence coverage, not on the model
+        # admitting ignorance - real models guess instead of saying "unknown"
+        # (docs/LIVE-FINDINGS.md, mechanically verified).
+        if getattr(rt, "proactive_readmit", True) and not any(
+            p.op == "semantic_retrieval" for p in plan
+        ):
+            ops = readmit_plan(
+                composed, features.archive, top_k=getattr(rt, "readmit_top_k", READMIT_TOP_K)
+            )
+            if ops:
+                composed, extra = rt.engine.compose(composed, ops, features)
+                added = sum(len(d.new_spans) for d in extra)
+                if added:
+                    diffs.extend(extra)
+                    self.stats["readmits"] += 1
+                    self.stats["readmit_spans"] += added
 
         outcomes = run_survival_probes(composed, self.probe_specs)  # 4 probes
         resp = rt.model.complete(composed)  # 5 call
@@ -269,6 +292,12 @@ class Aperture:
     accepts a pre-built store instance (takes precedence).
     `profile` is the one-knob curation posture: "balanced" (default),
     "lean", "safe", or "off"; an explicit `selector` overrides it.
+    `proactive_readmit` (default True) enables the P3-1 evidence-aware
+    re-admission: before each call, a dangling reference in the latest user
+    turn (an entity/value no other live span grounds) whose evidence lives in
+    the archive is restored via semantic_retrieval - so recovery never
+    depends on the model admitting "unknown". `readmit_top_k` bounds the
+    re-admission width (default 3).
     """
 
     def __init__(
@@ -280,8 +309,12 @@ class Aperture:
         store: Any = None,
         persist: str | None = None,
         profile: str = "balanced",
+        proactive_readmit: bool = True,
+        readmit_top_k: int = READMIT_TOP_K,
     ) -> None:
         self.model = _resolve_model(model)
+        self.proactive_readmit = proactive_readmit
+        self.readmit_top_k = readmit_top_k
         self.ledger = ledger
         if selector is not None:
             self.selector = selector

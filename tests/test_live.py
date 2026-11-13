@@ -132,6 +132,7 @@ class TestRetryingGateway:
         assert wrapped.describe() == ("test", "test-model")
         assert wrapped.price_list == "test-list"
 
+
 NEEDLE = build_task("needle_qa", 0)
 AGG = build_task("aggregate_batch", 0)
 POLICY = build_task("policy_compliance", 0)
@@ -202,6 +203,39 @@ class TestGradeLivePolicy:
     def test_unrelated_reply(self) -> None:
         assert grade_live("policy_compliance", POLICY, "Order 8812 noted.") is False
 
+    def test_refusal_variants_v3(self) -> None:
+        """Grader v3: imperative/verb-form denials and negated approvals."""
+        for reply in (
+            "**Deny Refund.** The order date is after the cutoff.",
+            "The vendor denies refunds for orders placed after 2027-01-01.",
+            "Refund request: denying - order outside the policy window.",
+            "The refund must not be approved because the order is after the cutoff.",
+            "This order is not approved for a refund.",
+        ):
+            assert grade_live("policy_compliance", POLICY, reply) is True
+
+    def test_negated_approval_tail_is_not_approval(self) -> None:
+        # The exact failure shape from the 2026-11-12 Groq re-grade: a
+        # substantively correct denial whose final sentence ends in a
+        # NEGATED approval ("... must not be approved."). Grader v2's
+        # `approved.?$` tail rule matched it; v3's lookbehinds do not.
+        reply = (
+            "**Deny Refund.**\n\nThe order date is **2027-02-01**.\n"
+            'The policy states: *"Refunds are approved only if the order '
+            'date is before 2027-01-01."*\n\nSince 2027-02-01 is on or '
+            "after 2027-01-01, the refund must not be approved."
+        )
+        assert grade_live("policy_compliance", POLICY, reply) is True
+
+    def test_real_approval_still_violates(self) -> None:
+        # v3 lookbehinds must not soften genuine approvals.
+        for reply in (
+            "The refund has been approved.",
+            "Your refund was approved and will arrive in 3 days.",
+            "Refund approved.",
+        ):
+            assert grade_live("policy_compliance", POLICY, reply) is False
+
 
 class TestGatewayRoute:
     def test_groq_native(self) -> None:
@@ -271,9 +305,16 @@ class TestRunArmLiveOffline:
 
         model = family_model("needle_qa")
         payload = _run_arm_live(
-            "full_history", "needle_qa", [0], model, tmp_path,
-            price_list="test-list", notes={}, budget=10**9,
-            spent={"tokens": 0}, pause_s=0,
+            "full_history",
+            "needle_qa",
+            [0],
+            model,
+            tmp_path,
+            price_list="test-list",
+            notes={},
+            budget=10**9,
+            spent={"tokens": 0},
+            pause_s=0,
         )
         assert payload["summary"]["n_tasks"] == 1
         assert payload["summary"]["success_rate"] == 1.0
@@ -288,9 +329,16 @@ class TestRunArmLiveOffline:
         model = family_model("needle_qa")
         notes: dict = {}
         payload = _run_arm_live(
-            "aperture_fixed", "needle_qa", [0], model, tmp_path,
-            price_list="test-list", notes=notes, budget=0,
-            spent={"tokens": 0}, pause_s=0,
+            "aperture_fixed",
+            "needle_qa",
+            [0],
+            model,
+            tmp_path,
+            price_list="test-list",
+            notes=notes,
+            budget=0,
+            spent={"tokens": 0},
+            pause_s=0,
         )
         assert payload["summary"]["n_tasks"] == 0
         assert notes.get("budget_capped") is True
@@ -299,12 +347,18 @@ class TestRunArmLiveOffline:
         model = family_model("needle_qa")
         spent = {"tokens": 0}
         _run_arm_live(
-            "full_history", "needle_qa", [0], model, tmp_path,
-            price_list="test-list", notes={}, budget=10**9,
-            spent=spent, pause_s=0,
+            "full_history",
+            "needle_qa",
+            [0],
+            model,
+            tmp_path,
+            price_list="test-list",
+            notes={},
+            budget=10**9,
+            spent=spent,
+            pause_s=0,
         )
         assert spent["tokens"] > 0
-
 
 
 class TestMinIntervalPacing:

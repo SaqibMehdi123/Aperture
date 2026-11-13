@@ -265,17 +265,18 @@ Six arms (of the eight registered; provider-native needs an API key, the learned
 | Arm | Success | needle_qa | policy_compliance | aggregate_batch |
 |---|---|---|---|---|
 | `full_history` | 1.00 | 474,308 tok | 484,816 tok | 277,170 tok |
-| `keep_recent_tuned` | 1.00 | −56% | −58% | −39% |
-| `threshold_edit_compact` | 1.00 | −51% | −57% | −52% |
+| `keep_recent_tuned` | 1.00 | −63% | −61% | −41% |
+| `threshold_edit_compact` | 1.00 | −55% | −64% | −51% |
 | `acon_always_compress` | **0.37** | −97% | −95% | −95% |
-| `headroom_proxy` | 1.00 | −68% | −69% | −53% |
-| `aperture_fixed` (shipped) | 1.00 | −56% | −58% | −39% |
+| `headroom_proxy` | 1.00 | −68% | −67% | −56% |
+| `aperture_fixed` (shipped) | 1.00 | −63% | −61% | −41% |
 
 Read this table honestly:
 
 - **`acon_always_compress` is the cautionary result**: it saves 95%+ of tokens and fails 63% of tasks — compression without governance destroys the evidence tasks depend on. That is the failure mode the guardrail + archive + retrieval design exists to prevent, and why savings are only ever reported jointly with success.
-- **`aperture_fixed` — the tuned heuristic that ships as the `balanced` profile — holds 100% task success with 39–58% savings and 100% of curation decisions logged** (trace coverage 1.0 on every arm). G1 rehearsal: ≥30% savings at equal-or-better success, offline. It matches `keep_recent_tuned` exactly because this suite contains no duplicate spans — the tuned dedupe knob never fires here.
-- **`headroom_proxy` saves more than the shipped heuristic on this suite** (53–69%) by planning purely on tool load. Closing that gap with a learned selector is a concrete P3 target.
+- **`aperture_fixed` — the tuned heuristic that ships as the `balanced` profile — holds 100% task success with 41–63% savings and 100% of curation decisions logged** (trace coverage 1.0 on every arm). G1 rehearsal: ≥30% savings at equal-or-better success, offline. It matches `keep_recent_tuned` exactly because this suite contains no duplicate spans — the tuned dedupe knob never fires here.
+- **P3-1 proactive re-admission (v0.4.0) made recovery free**: the runtime now restores archived evidence *before* the model call whenever the latest turn references an entity/value no live span grounds (keyed on evidence coverage, not on the model admitting "unknown" — real models fabricate instead, per `docs/LIVE-FINDINGS.md`). On this suite that removed the "unknown" retry round-trip entirely: tuned-arm savings moved from −56/−58/−39 to −63/−61/−41 at unchanged success, and the offline parity result no longer rests on a synthetic-model convention.
+- **`headroom_proxy` saves more than the shipped heuristic on this suite** (56–68%) by planning purely on tool load. Closing that gap with a learned selector is a concrete P3 target.
 - Tuning: the shipped point `{threshold: 0.5, keep_n: 6, dedupe_at: 0.2}` won a 48-config grid sweep on held-out training tasks at 53.1% savings vs full history with zero task and zero probe failures ([`eval/tune.py`](eval/tune.py), manifests in [`results/tuning/`](results/README.md)).
 
 These are synthetic-model figures on a deterministic suite — real-model AppWorld / tau2-bench runs are the remaining P2 item and need an API key.

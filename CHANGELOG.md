@@ -3,6 +3,43 @@
 All notable changes to Aperture are documented here. Format based on
 Keep a Changelog; versioning is SemVer.
 
+## [0.4.0] - Phase P3 start (evidence-aware proactive re-admission)
+
+### Added
+- **Evidence-aware proactive re-admission** (`aperture/readmit.py`, wired
+  into `Session.complete()`): before every model call, the runtime checks
+  whether the latest user turn references salient entities/values (numbers
+  always, non-stopword words otherwise) that no other live span grounds, and
+  whether the archive actually holds content grounding them. When both gates
+  pass it re-admits the top archive hits (default `top_k=3`) through the
+  normal `semantic_retrieval` operator - inside the guardrail, visible as a
+  `semantic_retrieval` diff in the trace. This is the P3-1 fix for the
+  live-verified parity break (docs/LIVE-FINDINGS.md): real models fabricate,
+  echo filler, or reply empty instead of saying "unknown", so a retry keyed
+  on "unknown" never fires; recovery now keys on evidence coverage instead
+  of model honesty. `Aperture(proactive_readmit=False)` restores the
+  pre-P3 behavior; `readmit_top_k` bounds the re-admission width. Session
+  stats gain `readmits` / `readmit_spans`.
+- **Grader v3** (`eval/live.py`): imperative/verb-form denials (`deny`,
+  `denies`, `denying`) and negated approvals (`not (be) approv`) join the
+  refusal vocabulary; the approval tail rule `approved.?$` now carries
+  fixed-width negative lookbehinds so "must not be approved." endings are
+  not read as approvals. Fixes the 2026-11-12 Groq re-grade finding where a
+  substantively correct baseline denial ("**Deny Refund.** ... the refund
+  must not be approved.") graded False on both patterns. Run manifests now
+  stamp `grade_live v3`.
+
+### Changed
+- Offline benchmark (20 tasks x 3 families per arm, deterministic grading
+  models): tuned arms keep 1.00 success while savings improve from
+  −56/−58/−39% to **−63/−61/−41%** (needle/policy/aggregate vs full
+  history) - the "unknown" retry round-trip is gone, so recovery costs zero
+  extra model calls. Baseline arms byte-identical. Manifest:
+  `results/compare/summary-20261113T173232.109068Z.json`.
+- `tests/test_tasks.py` aggressive-recovery test now asserts the P3
+  contract: success at baseline call count (`readmits >= 1`) instead of a
+  paid retry call.
+
 ## [0.3.0] - Phase P2 (tuned selector + offline benchmark)
 
 ### Added

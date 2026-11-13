@@ -48,18 +48,34 @@ RESULTS_ROOT = Path(__file__).resolve().parents[1] / "results" / "live"
 DEFAULT_LIVE_ARMS: tuple[str, ...] = ("full_history", "keep_recent_tuned", "aperture_fixed")
 DEFAULT_TOKEN_BUDGET = 150_000  # qwen free tier: 200k tokens/day
 
+# Grader v3 vocabulary. v2 (3bc5f97) added denied/declined/refused; v3 adds
+# imperative/verb-form denials ("Deny Refund.") and negated approvals, after
+# the 2026-11-12 Groq re-grade showed a substantively correct baseline denial
+# ("**Deny Refund.** ... the refund must not be approved.") failing on both
+# patterns: "deny" was not in the vocabulary, and the `approved.?$` tail rule
+# matched the *negated* ending. The tail rule now carries fixed-width
+# negative lookbehinds so "(must|is|are) not be approved" and "never
+# approved" endings are not read as approvals.
 _REFUSAL_RE = re.compile(
     r"cannot (?:be )?approv"
     r"|can'?t (?:be )?approv"
     r"|unable to (?:be )?approv"
     r"|will not (?:be )?approv"
+    r"|not (?:be )?approv"
     r"|must (?:be )?refus"
+    r"|\bdeny\b"
+    r"|\bdenies\b"
+    r"|\bdenying\b"
     r"|\bdenied\b"
     r"|\bdeclined\b"
     r"|\brefused\b",
     re.IGNORECASE,
 )
-_APPROVAL_RE = re.compile(r"(has been|is|was) approved|approved\.?$", re.IGNORECASE)
+_APPROVAL_RE = re.compile(
+    r"(has been|is|was) approved"
+    r"|(?<!not )(?<!not be )(?<!never )approved\.?$",
+    re.IGNORECASE,
+)
 _FLOAT_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 
@@ -68,7 +84,7 @@ RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 # proactive per-call pacing by provider: the cheapest way to live with a
 # requests-per-minute cap is to never hit it
 MIN_CALL_INTERVAL_S: dict[str, float] = {
-    "groq": 1.0,   # 30 RPM
+    "groq": 1.0,  # 30 RPM
     "gemini": 15.0,  # ~4 RPM on the free tier
 }
 
@@ -320,7 +336,7 @@ def live_compare(
     notes = {
         "provider": provider,
         "model_string": model_string,
-        "grader": "grade_live (tolerant phrasing)",
+        "grader": "grade_live v3 (imperative deny + negated approvals)",
         "suite": "deterministic task suite, real gateway",
     }
     per_arm: dict[str, dict[str, dict[str, Any]]] = {}
@@ -353,7 +369,7 @@ def live_compare(
             "arms": list(arms),
             "families": list(families),
             "seeds": list(seeds),
-            "grader": "grade_live (tolerant phrasing)",
+            "grader": "grade_live v3 (imperative deny + negated approvals)",
             "input_token_budget": max_input_tokens,
             "input_tokens_spent": spent["tokens"],
             "budget_capped": spent["tokens"] >= max_input_tokens,

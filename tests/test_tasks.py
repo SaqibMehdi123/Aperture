@@ -74,13 +74,17 @@ def test_eval_seeds_are_the_regression_subset():
 
 
 def test_aggressive_curation_still_recovers(tmp_path):
-    """Even keep_n=1 succeeds: unknown -> archive -> retrieval -> re-answer."""
+    """Even keep_n=1 succeeds. P3-1: recovery is now PROACTIVE - the runtime
+    re-admits the archived evidence before the call, keyed on evidence
+    coverage, so no "unknown" retry call is needed anymore (real models
+    never say "unknown"; docs/LIVE-FINDINGS.md)."""
     factory = _ap_factory(
         selector=HeuristicSelector(threshold=0.1, keep_n=1),
     )
     stats = run_task("needle_qa", seed=4, make_ap=factory)
     assert stats["success"]
-    assert stats["calls"] > run_task_calls_baseline  # retrieval retry cost
+    assert stats["calls"] == run_task_calls_baseline  # zero-cost recovery
+    assert stats["readmits"] >= 1  # the evidence came from the archive
 
 
 run_task_calls_baseline = run_task("needle_qa", seed=4, make_ap=_ap_factory(profile="off"))["calls"]

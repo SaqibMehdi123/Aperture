@@ -105,3 +105,28 @@ for the needle fix.
   UTC). Coverage check skips cells already complete after 13:00Z.
 - needle_qa / aggregate live break is the entry item for the P3 plan; the
   replay probe is reproducible offline (`python3 scripts/needle_window_probe.py`).
+
+## Update 2026-11-13: P3-1 shipped, grader v3
+
+- **P3-1 (direction 1) is implemented in the runtime**
+  (`aperture/readmit.py` + `Session.complete()`): evidence-aware proactive
+  re-admission before every call - dangling references in the latest user
+  turn (salient tokens absent from every other live span) whose evidence the
+  archive grounds are restored via `semantic_retrieval`, inside the
+  guardrail and the trace. Recovery no longer depends on the model admitting
+  ignorance. Offline effect: tuned arms hold 1.00 success while savings
+  improve −56/−58/−39% -> −63/−61/−41% (the "unknown" retry round-trip is
+  gone; `results/compare/summary-20261113T173232.109068Z.json`). The live
+  arms now need a fresh dispatch to measure the same effect on real models -
+  the synthetic "unknown" convention that produced the break above is no
+  longer load-bearing for parity.
+- **Grader v3** (`eval/live.py`): the 2026-11-12 re-grade showed the Groq
+  full_history policy cell failing on a *correct* denial ("**Deny Refund.**
+  ... must not be approved.") - "deny" was not in the v2 vocabulary and the
+  `approved.?$` tail rule matched the negated ending. v3 adds
+  imperative/verb-form denials and negates the tail rule via lookbehinds.
+- Follow-up live turn needed: re-dispatch groq
+  `arms=full_history,keep_recent_tuned,aperture_fixed;families=policy_compliance,needle_qa;seeds=0`
+  under grader v3 + P3-1 runtime to (a) re-grade the baseline policy cell
+  and (b) measure whether proactive re-admission closes the needle_qa
+  parity break on real models.

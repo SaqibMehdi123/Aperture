@@ -1,0 +1,1 @@
+{"bytes_dropped": 0, "cache_hit_rate": 0.0556, "cache_hits": 1, "cache_misses": 17, "calls": 18, "cost_usd": 0.0, "family": "needle_qa", "final_reply": "1051", "input_tokens": 27743, "output_tokens": 24, "probes_failed": 0, "readmit_spans": 0, "readmits": 0, "seed": 0, "spans_dropped": 0, "success": true, "tokens": 27743}

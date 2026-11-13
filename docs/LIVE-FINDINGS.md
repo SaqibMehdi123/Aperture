@@ -130,3 +130,42 @@ for the needle fix.
   under grader v3 + P3-1 runtime to (a) re-grade the baseline policy cell
   and (b) measure whether proactive re-admission closes the needle_qa
   parity break on real models.
+
+## Update 2026-11-13 (later): LIVE VALIDATION - G1-live parity PASSES on Groq
+
+Re-dispatched the same day under grader v3 + P3-1 runtime (commit `df1e513`,
+workflow run 43474369342 + a keep_recent_tuned re-run after the blank-reply
+guard, `4cfb449`). Aggregate:
+`results/compare/live-summary-20261113T175338.070964Z.json`.
+
+### The fresh Groq grid (succ / input tokens / savings)
+
+| arm | needle_qa | policy_compliance |
+| --- | --- | --- |
+| full_history | 1.0 / 27,743 / - | 1.0 / 27,442 / - |
+| keep_recent_tuned | **1.0** / 11,885 / 57.2% | 1.0 / 13,117 / 52.2% |
+| aperture_fixed | **1.0** / 10,841 / 60.9% | 1.0 / 12,073 / 56.0% |
+
+**G1-live headline: keep_recent_tuned min savings 37%, success parity YES;
+aperture_fixed min savings 36%, success parity YES** (aggregate_batch cells
+remain the 2026-11-11 runs: 0.0 vs 0.0, baseline instability as documented
+above). needle_qa went 0.0 -> 1.0 on both truncation arms - the root cause
+section above is now a historical record, not an open break.
+
+### Mechanical evidence the fix fired on real models
+
+Both tuned needle_qa cells show identical runtime stats: 18 calls,
+36 spans dropped, **4 readmits / 12 re-admitted spans** - and the
+aperture_fixed cell replied the exact needle value `1051` (previously a
+fabricated `4098` / filler echo / empty). keep_recent_tuned's first run
+replied EMPTY with the evidence present (same degenerate quirk as 2026-11-11);
+the arm-fair blank-reply re-ask (commit `4cfb449`) recovered it on re-run
+(19 calls = 18 + 1 re-ask, reply `1051`).
+
+### Remaining for a full cross-provider claim
+
+- Gemini needle_qa/policy cells are still the 2026-11-11 pre-P3 runs
+  (parity NO there is stale, not current); a Gemini dispatch under the new
+  runtime is the next live turn (tight free-tier RPM, needs its own window).
+- aggregate_batch parity needs tool-assisted summation tasks (direction 4)
+  before it can grade either arm meaningfully.

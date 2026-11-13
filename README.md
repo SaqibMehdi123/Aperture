@@ -281,6 +281,18 @@ Read this table honestly:
 
 These are synthetic-model figures on a deterministic suite — real-model AppWorld / tau2-bench runs are the remaining P2 item and need an API key.
 
+## Live real-model validation — G1-live (Groq, grader v3 + P3-1 runtime)
+
+The same uniform loop and arms, graded through a real provider (Groq `qwen3.8-27b` free tier, seed 0, `python -m eval.live`; manifests in `results/live/`, aggregate `results/compare/live-summary-20261113T175338.070964Z.json`):
+
+| Arm | needle_qa | policy_compliance |
+|---|---|---|
+| `full_history` | 1.0 / 27,743 tok | 1.0 / 27,442 tok |
+| `keep_recent_tuned` | **1.0** / 11,885 tok (−57%) | 1.0 / 13,117 tok (−52%) |
+| `aperture_fixed` (shipped) | **1.0** / 10,841 tok (−61%) | 1.0 / 12,073 tok (−56%) |
+
+**G1-live: min savings 37% at success parity YES.** The needle_qa cells were the live parity break (`docs/LIVE-FINDINGS.md` — real models fabricate instead of saying "unknown"); the P3-1 evidence-aware proactive re-admission closed it on real models: the runtime re-admitted the archived fact before the call in both truncation arms (4 readmits / 12 spans each) and both replied the exact needle value. Gemini cells predate this runtime and are the next live item.
+
 ## Research and reproducibility
 
 **Problem.** Context-curation policies are evaluated only at the system level, so nobody can say whether a single curation decision (dropping *this* observation, summarizing *that* span) was right. Aperture's answer is CurateBench: every step logs features, plan, per-operator diffs, cache state, and probes to a versioned schema (`curatebench/trace@v2`, [`bench/schema.py`](bench/schema.py)), which a replay engine can re-run under alternative policies.

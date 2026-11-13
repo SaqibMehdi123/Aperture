@@ -250,6 +250,13 @@ def run_task(
             chat.send(content, role=role)
 
         reply = chat.send(plan.question)
+        if not reply.strip():
+            # Degenerate-output guard (uniform, arm-fair): real providers
+            # occasionally return a blank completion with the evidence fully
+            # present in the window (Groq qwen, 2026-11-11 and 2026-11-13
+            # needle_qa runs). One re-ask, no archive ingest - the P3-1
+            # runtime has already restored any archived evidence.
+            reply = chat.send(plan.question)
         if _is_unknown(reply):
             # The uniform retrieval retry: search the archive channel that
             # carries this family's evidence (a real agent does the same).

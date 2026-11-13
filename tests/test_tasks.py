@@ -88,3 +88,39 @@ def test_aggressive_curation_still_recovers(tmp_path):
 
 
 run_task_calls_baseline = run_task("needle_qa", seed=4, make_ap=_ap_factory(profile="off"))["calls"]
+
+
+def test_blank_reply_retried_once():
+    """Degenerate-output guard: one arm-fair re-ask on a blank completion.
+
+    Real providers occasionally return an empty completion with the evidence
+    fully present (Groq qwen, 2026-11-11 and 2026-11-13 needle_qa runs). The
+    guard re-asks once; no archive ingest happens on this path."""
+    from eval.tasks import _QUESTION_RE, _model_response
+
+    blanks = {"n": 0}
+
+    class BlankOnce:
+        """Replies '' on the first question-bearing call, then delegates."""
+
+        def __init__(self, inner):
+            self.inner = inner
+
+        def describe(self):
+            return self.inner.describe()
+
+        @property
+        def price_list(self):
+            return self.inner.price_list
+
+        def complete(self, window):
+            prompt = "\n".join(s.content for s in window.spans)
+            if blanks["n"] == 0 and _QUESTION_RE.search(prompt):
+                blanks["n"] += 1
+                return _model_response(window, "")
+            return self.inner.complete(window)
+
+    factory = lambda model: Aperture(model=BlankOnce(model), profile="off")  # noqa: E731
+    stats = run_task("needle_qa", seed=4, make_ap=factory)
+    assert stats["success"]  # the re-ask produced the graded value
+    assert blanks["n"] == 1  # exactly one blank -> exactly one re-ask

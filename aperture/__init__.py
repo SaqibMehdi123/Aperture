@@ -8,6 +8,6 @@ Public entry points:
 from aperture.chat import ChatSession
 from aperture.runtime import Aperture, Session, wrap
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __all__ = ["Aperture", "ChatSession", "Session", "__version__", "wrap"]

@@ -1,0 +1,287 @@
+{
+  "arms": {
+    "acon_always_compress": {
+      "aggregate_batch": {
+        "cache_hit_rate": 0.0,
+        "calls": 400,
+        "cost_usd": 0.044007,
+        "input_tokens": 14669,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.9471,
+        "success_rate": 0.1,
+        "trace_coverage": 1.0
+      },
+      "needle_qa": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.09558,
+        "input_tokens": 31860,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.9316,
+        "success_rate": 0.0,
+        "trace_coverage": 1.0
+      },
+      "policy_compliance": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.07956,
+        "input_tokens": 26520,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.9453,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      }
+    },
+    "aperture_fixed": {
+      "aggregate_batch": {
+        "cache_hit_rate": 0.0,
+        "calls": 400,
+        "cost_usd": 0.513261,
+        "input_tokens": 171087,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.3827,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "needle_qa": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.607734,
+        "input_tokens": 202578,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5652,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "policy_compliance": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.611076,
+        "input_tokens": 203692,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5799,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      }
+    },
+    "full_history": {
+      "aggregate_batch": {
+        "cache_hit_rate": 0.0,
+        "calls": 380,
+        "cost_usd": 0.83151,
+        "input_tokens": 277170,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.0,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "needle_qa": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 1.397604,
+        "input_tokens": 465868,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.0,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "policy_compliance": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 1.454448,
+        "input_tokens": 484816,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.0,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      }
+    },
+    "headroom_proxy": {
+      "aggregate_batch": {
+        "cache_hit_rate": 0.0,
+        "calls": 400,
+        "cost_usd": 0.358062,
+        "input_tokens": 119354,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5694,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "needle_qa": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.454722,
+        "input_tokens": 151574,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.6746,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "policy_compliance": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.45318,
+        "input_tokens": 151060,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.6884,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      }
+    },
+    "keep_recent_tuned": {
+      "aggregate_batch": {
+        "cache_hit_rate": 0.0,
+        "calls": 400,
+        "cost_usd": 0.513261,
+        "input_tokens": 171087,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.3827,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "needle_qa": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.607734,
+        "input_tokens": 202578,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5652,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "policy_compliance": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.611076,
+        "input_tokens": 203692,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5799,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      }
+    },
+    "threshold_edit_compact": {
+      "aggregate_batch": {
+        "cache_hit_rate": 0.0,
+        "calls": 400,
+        "cost_usd": 0.402057,
+        "input_tokens": 134019,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5165,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "needle_qa": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.638124,
+        "input_tokens": 212708,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5434,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      },
+      "policy_compliance": {
+        "cache_hit_rate": 0.0,
+        "calls": 280,
+        "cost_usd": 0.630966,
+        "input_tokens": 210322,
+        "n_tasks": 20,
+        "probes_failed": 0,
+        "savings_frac": 0.5662,
+        "success_rate": 1.0,
+        "trace_coverage": 1.0
+      }
+    }
+  },
+  "g1_rehearsal": {
+    "acon_always_compress": {
+      "fully_traced": true,
+      "min_savings_frac": 0.9316,
+      "success_equal_or_better": false
+    },
+    "aperture_fixed": {
+      "fully_traced": true,
+      "min_savings_frac": 0.3827,
+      "success_equal_or_better": true
+    },
+    "headroom_proxy": {
+      "fully_traced": true,
+      "min_savings_frac": 0.5694,
+      "success_equal_or_better": true
+    },
+    "keep_recent_tuned": {
+      "fully_traced": true,
+      "min_savings_frac": 0.3827,
+      "success_equal_or_better": true
+    },
+    "threshold_edit_compact": {
+      "fully_traced": true,
+      "min_savings_frac": 0.5165,
+      "success_equal_or_better": true
+    }
+  },
+  "manifest": {
+    "aperture_version": "0.4.1",
+    "arms": [
+      "full_history",
+      "keep_recent_tuned",
+      "threshold_edit_compact",
+      "acon_always_compress",
+      "headroom_proxy",
+      "aperture_fixed"
+    ],
+    "families": [
+      "needle_qa",
+      "policy_compliance",
+      "aggregate_batch"
+    ],
+    "git_hash": "c6e170f08853b2cea68a20a39f106d50d26cc518",
+    "note": "deterministic offline suite (synthetic grading models); not a real-model benchmark - AppWorld/tau2 runs need an API key; needle_qa facts declared via chat.facts() DX API, P3-2 posture (mark_facts=True; pre-P3-2 loop = mark_facts=False)",
+    "ran_at": "2026-11-14T16:50:55.147+00:00",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "tuned_params": {
+      "dedupe_at": 0.2,
+      "keep_n": 6,
+      "threshold": 0.5
+    }
+  }
+}

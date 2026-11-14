@@ -97,7 +97,9 @@ def compare(
             "seeds": list(seeds),
             "tuned_params": TUNED_BALANCED,
             "note": "deterministic offline suite (synthetic grading models); "
-            "not a real-model benchmark - AppWorld/tau2 runs need an API key",
+            "not a real-model benchmark - AppWorld/tau2 runs need an API key; "
+            "needle_qa facts declared via chat.facts() DX API, P3-2 posture "
+            "(mark_facts=True; pre-P3-2 loop = mark_facts=False)",
             "ran_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         },
         "arms": table,

@@ -73,21 +73,38 @@ def test_eval_seeds_are_the_regression_subset():
     assert all(build_task(f, s).question for f in FAMILIES for s in EVAL_SEEDS[:3])
 
 
-def test_aggressive_curation_still_recovers(tmp_path):
-    """Even keep_n=1 succeeds. P3-1: recovery is now PROACTIVE - the runtime
-    re-admits the archived evidence before the call, keyed on evidence
-    coverage, so no "unknown" retry call is needed anymore (real models
-    never say "unknown"; docs/LIVE-FINDINGS.md)."""
+def test_aggressive_curation_marks_facts_survive(tmp_path):
+    """P3-2 posture (mark_facts=True, the shipped default): even keep_n=1
+    cannot drop a marked fact - prevention, not recovery. Success needs no
+    re-admission and no extra call."""
     factory = _ap_factory(
         selector=HeuristicSelector(threshold=0.1, keep_n=1),
     )
     stats = run_task("needle_qa", seed=4, make_ap=factory)
     assert stats["success"]
-    assert stats["calls"] == run_task_calls_baseline  # zero-cost recovery
+    assert stats["calls"] == run_task_calls_baseline  # zero-cost recovery path never fires
+    assert stats["readmits"] == 0  # nothing to recover: the facts never left
+    assert stats["facts_added"] == 4 and stats["fact_demotions"] == 0
+    assert stats["spans_dropped"] > 0  # curation still ran on the flood
+
+
+def test_unmarked_facts_recover_via_readmit(tmp_path):
+    """Pre-P3-2 posture (mark_facts=False): facts are plain user turns,
+    curation drops them, and the P3-1 evidence-aware re-admission recovers
+    them before the call - the recovery layer still works end to end."""
+    factory = _ap_factory(
+        selector=HeuristicSelector(threshold=0.1, keep_n=1),
+    )
+    stats = run_task("needle_qa", seed=4, make_ap=factory, mark_facts=False)
+    assert stats["success"]
+    assert stats["calls"] == run_task_calls_baseline_unmarked
     assert stats["readmits"] >= 1  # the evidence came from the archive
 
 
 run_task_calls_baseline = run_task("needle_qa", seed=4, make_ap=_ap_factory(profile="off"))["calls"]
+run_task_calls_baseline_unmarked = run_task(
+    "needle_qa", seed=4, make_ap=_ap_factory(profile="off"), mark_facts=False
+)["calls"]
 
 
 def test_blank_reply_retried_once():

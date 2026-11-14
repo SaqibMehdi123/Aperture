@@ -161,8 +161,23 @@ class TestReadmitPlan:
         assert readmit_plan(w, self._archive_view(ap, "s")) == []
 
     def test_digit_grounding_still_fires(self) -> None:
-        # Same shape, but the archived turn carries the missing number:
-        # a genuine dangling reference fires.
+        # Same digits, but the archived turn is a DIFFERENT statement (not a
+        # verbatim copy of the query): a genuine dangling reference fires.
+        ap = Aperture()
+        ap.store.archive_put("s", "a1", "conversation", "routine check 0 ok", 0, 18)
+        w = _window_with(
+            [
+                ("s1", "system", "system prompt body"),
+                ("s2", "conversation", "what did routine check 0 report?"),
+            ]
+        )
+        ops = readmit_plan(w, self._archive_view(ap, "s"))
+        assert len(ops) == 1 and ops[0].op == "semantic_retrieval"
+
+    def test_self_echo_grounding_is_silent(self) -> None:
+        # An archived verbatim copy of the query turn is self-echo, not
+        # evidence: ultra-aggressive curation dropping repeated template
+        # turns must not make the runtime re-admit them.
         ap = Aperture()
         ap.store.archive_put("s", "a1", "conversation", "routine check 0 ok", 0, 18)
         w = _window_with(
@@ -171,8 +186,7 @@ class TestReadmitPlan:
                 ("s2", "conversation", "routine check 0 ok"),
             ]
         )
-        ops = readmit_plan(w, self._archive_view(ap, "s"))
-        assert len(ops) == 1 and ops[0].op == "semantic_retrieval"
+        assert readmit_plan(w, self._archive_view(ap, "s")) == []
 
     def test_fires_when_archive_grounds_missing_reference(self) -> None:
         ap = Aperture()

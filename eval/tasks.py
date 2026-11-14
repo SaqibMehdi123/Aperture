@@ -134,6 +134,11 @@ class TaskPlan:
     turns: tuple[tuple[str, str], ...]  # (role, content) before the question
     question: str
     expected: str  # canonical expected reply fragment / value
+    # Indices into `turns` that carry declarative facts. When run_task is
+    # called with mark_facts=True (the shipped posture since P3-2) these
+    # turns are declared through the chat.facts() DX API - pinned under the
+    # fact pin budget, no model round trip - instead of plain user turns.
+    fact_turn_idxs: tuple[int, ...] = ()
 
 
 def build_task(family: str, seed: int) -> TaskPlan:
@@ -157,6 +162,7 @@ def build_task(family: str, seed: int) -> TaskPlan:
             turns=tuple(turns),
             question=f"Question: {facts[j][0]} Answer with the exact value only.",
             expected=facts[j][1],
+            fact_turn_idxs=tuple(range(1, 5)),  # the four fact statements
         )
 
     if family == "policy_compliance":
@@ -218,11 +224,20 @@ def run_task(
     make_ap,
     session_id: str | None = None,
     grader=None,
+    mark_facts: bool = True,
 ) -> dict:
     """Run one task under an Aperture factory; return stats + success.
 
     `grader(family, plan, reply) -> bool` overrides the default exact grading
-    (eval.live passes a phrasing-tolerant grader for real models)."""
+    (eval.live passes a phrasing-tolerant grader for real models).
+
+    `mark_facts` (default True) is the P3-2 posture: declarative-fact turns
+    (TaskPlan.fact_turn_idxs) are declared through the chat.facts() DX API -
+    pinned under the fact pin budget, no model round trip. This measures the
+    PREVENTION layer (facts never leave the window, so re-admission never
+    has to fire). mark_facts=False restores the pre-P3-2 loop (facts as
+    plain user turns) and exercises the drop -> archive -> recover path;
+    the flag is arm-independent, so both postures stay arm-fair."""
     from aperture import Aperture
 
     if not isinstance(make_ap, Aperture) and callable(make_ap):
@@ -246,8 +261,11 @@ def run_task(
             chat.system("You are a monitoring agent. Log and aggregate readings.")
             chat.raw.register_probe("system-intact", "system", "monitoring agent")
 
-        for role, content in plan.turns:
-            chat.send(content, role=role)
+        for i, (role, content) in enumerate(plan.turns):
+            if mark_facts and i in plan.fact_turn_idxs:
+                chat.fact(content)  # P3-2: declared, pinned, no model call
+            else:
+                chat.send(content, role=role)
 
         reply = chat.send(plan.question)
         if not reply.strip():

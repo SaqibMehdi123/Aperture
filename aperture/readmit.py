@@ -34,7 +34,10 @@ Two gates keep the trigger precise:
    ok") finds only word-level matches in the archive ("routine check 1
    ok") and stays silent - the phantom-miss case. A question that genuinely
    references a dropped value ("the code for room 4?") finds the archived
-   fact carrying that number and fires.
+   fact carrying that number and fires. A hit that is a verbatim copy of
+   the query turn itself is also rejected: an archived duplicate of the
+   turn being answered is self-echo, not evidence (it happens when ultra-
+   aggressive curation drops template turns whose text repeats).
 
 Cost bounds: at most one archive probe + one retrieval op per model call,
 top_k re-admitted spans (default 3), and the operator never admits content
@@ -263,10 +266,16 @@ def readmit_plan(
     # tokens themselves (not merely the full query text, whose template
     # words could overlap archived boilerplate). When the missing set has
     # numbers, a hit must carry one of them - word-only overlap on template
-    # vocabulary is not evidence (module docstring, gate 2).
+    # vocabulary is not evidence (module docstring, gate 2). Hits that are
+    # verbatim copies of the query turn are self-echo, not evidence.
+    query_text = query_span.content.strip()
     missing_digits = {t for t in missing if t.isdigit()}
     probe_query = " ".join(sorted(missing))
-    hits = archive.search(probe_query, top_k=3, min_score=min_score)
+    hits = [
+        h
+        for h in archive.search(probe_query, top_k=3, min_score=min_score)
+        if h.content.strip() != query_text
+    ]
     if not hits:
         return []
     if missing_digits and not any(missing_digits & tokenize(h.content) for h in hits):

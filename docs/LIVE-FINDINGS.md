@@ -197,3 +197,34 @@ the arm-fair blank-reply re-ask (commit `4cfb449`) recovered it on re-run
   (summary-20261113T173232.109068Z.json) - tuned arms hold 1.00 success at
   -63/-61/-41% savings; the new aggregate manifest:
   `results/compare/summary-20261114T162419.594611Z.json`.
+
+## Update 2026-11-15 (later): facts-marked suite posture + the pollution finding
+
+With `chat.facts()` wired into the needle_qa loop (`run_task mark_facts=True`,
+arm-fair) and the grounding gate further tightened (self-echo exclusion: an
+archived verbatim copy of the turn being answered is not evidence), the
+benchmark re-run surfaced a mechanism worth recording:
+
+- **Phantom re-admissions were accidentally evicting large tool spans.**
+  Before the fix, each phantom trigger inserted 3 small "retrieved" template
+  copies into the window; keep_recent keeps the N most RECENT droppables, so
+  those copies occupied recent slots and pushed ~3 large tool spans out.
+  Lower tokens, noise content. Measured on policy seed 0 (tuned profile):
+  old gate 14 calls / 9,532 tok / 3 readmits / 29 dropped; fixed gate 14
+  calls / 10,222 tok / 0 readmits / 21 dropped. The fix is kept - same
+  success, no noise in the trace - at the cost of ~6-7% tuned-arm input
+  tokens on policy/aggregate (savings -63/-61/-41 -> -57/-58/-38 under the
+  marked posture). A principled version of the accidental effect - an
+  operator that evicts large, stale, never-referenced tool outputs - is
+  P4 territory (tool_output_tokens_recent is already a selector feature).
+- **Prevention vs recovery, measured on needle seed 0 (tuned)**: marked
+  facts = 14 calls / 10,166 tok / 0 readmits; unmarked loop = 18 calls /
+  9,826 tok / 1 readmit. Prevention is ~3% more input tokens but 4 fewer
+  model round-trips and zero lexical-trigger dependence - on real providers
+  the round-trips (quota + latency) dominate, so mark_facts=True ships as
+  the default.
+- G1 rehearsal after both changes: min savings 38.3% >= 30% at success
+  parity, 100% traced (`results/compare/summary-20261114T165055.147314Z.json`).
+- Next live dispatch runs under this loop: needle tasks spend 4 fewer calls
+  (quota-relevant on free tiers) and the Gemini cells get their first
+  P3-runtime measurement.

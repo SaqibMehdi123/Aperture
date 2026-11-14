@@ -3,6 +3,39 @@
 All notable changes to Aperture are documented here. Format based on
 Keep a Changelog; versioning is SemVer.
 
+## [0.4.2] - Phase P3 continued (facts-marked suite posture, self-echo gate)
+
+### Added
+- **Prevention-vs-recovery measurement**: the offline needle_qa loop now
+  declares its facts through the P3-2 DX API by default
+  (`run_task(..., mark_facts=True)`; `TaskPlan.fact_turn_idxs`). Marked
+  posture (seed 0, tuned profile): 14 calls / 10,166 input tokens; the
+  pre-P3-2 loop (`mark_facts=False`, kept for the recovery-layer tests):
+  18 calls / 9,826 tokens with one proactive re-admission. Prevention costs
+  ~3% input tokens, removes 4 model round-trips (-22% calls) and all
+  lexical-trigger dependence; the flag is arm-independent so both postures
+  stay arm-fair. `eval.compare` manifests stamp the posture in `note`.
+
+### Changed
+- **Re-admission grounding gate: self-echo exclusion** (`aperture/readmit.py`):
+  an archived span that is a verbatim copy of the turn being answered is no
+  longer accepted as grounding evidence. Found by the facts-marked tests
+  under ultra-aggressive curation (keep_n=1): dropped template turns
+  ("Please process the next support case.") grounded the next identical
+  turn, re-admitting noise. Honest token consequence: the phantom
+  re-admissions had been *accidentally evicting* large tool spans from the
+  recent-keep_n window (each inserted 3 small "retrieved" copies that
+  displaced ~3 large spans), so removing them raises tuned-arm input tokens
+  ~6-7% on policy/aggregate: savings -63/-61/-41 -> -57/-58/-38 under the
+  marked posture (needle baseline also shifts: facts skip 4 round-trips).
+  Success rates and trace coverage unchanged; G1 rehearsal still passes
+  (min savings 38.3% >= 30%, success equal-or-better). The mechanism and
+  the P4 follow-up (a principled eviction operator for large stale tool
+  outputs) are documented in docs/LIVE-FINDINGS.md.
+- Offline benchmark re-run under the marked posture: 1.00 success on all
+  curation arms; manifest
+  `results/compare/summary-20261114T165055.147314Z.json`.
+
 ## [0.4.1] - Phase P3 continued (declarative-fact protection)
 
 ### Added

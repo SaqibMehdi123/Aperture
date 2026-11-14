@@ -23,6 +23,7 @@ SPAN_CONSTRAINT = "constraint"
 SPAN_TOOL_RESULT = "tool_result"
 SPAN_CONVERSATION = "conversation"
 SPAN_SUMMARY = "summary"
+SPAN_FACT = "fact"  # P3-2: developer-marked fact, pinned under a budget
 
 
 def estimate_tokens(text: str) -> int:

@@ -12,8 +12,9 @@ The design rule is: plain text in, plain text out, zero required config.
         print(chat.stats())                              # what curation bought
 
 Safety is automatic: system prompts land pinned/protected in the cache head,
-constraint text is protected by class (AG2), every dropped span is archived,
-and task outcomes join the trace on context exit. Power users drop to
+constraint text is protected by class (AG2), developer-marked facts are
+pinned under a budget (P3-2), every dropped span is archived, and task
+outcomes join the trace on context exit. Power users drop to
 `chat.raw` (the full Session) or `aperture.wrap()` when they need it.
 """
 
@@ -57,6 +58,22 @@ class ChatSession:
     def constraints(self, texts) -> None:
         for t in texts:
             self.constraint(t)
+
+    def fact(self, text: str) -> None:
+        """One declarative fact ("The access code for vault 7 is 1051.").
+
+        Pinned so curation cannot drop it while it fits the fact pin budget
+        (`Aperture(fact_pin_budget)`, default 16); beyond the budget the
+        oldest facts are demoted and become droppable - still archived, so
+        the evidence-aware re-admission can restore them when a later turn
+        references them. Mirrors `constraints()`: explicit marking, one line
+        per fact, no heuristics deciding what counts as knowledge.
+        """
+        self._sess.add_fact(text)
+
+    def facts(self, texts) -> None:
+        for t in texts:
+            self.fact(t)
 
     # -- the one-call API -----------------------------------------------------
     def send(self, text: str, role: str = "user") -> str:

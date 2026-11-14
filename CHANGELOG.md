@@ -3,6 +3,39 @@
 All notable changes to Aperture are documented here. Format based on
 Keep a Changelog; versioning is SemVer.
 
+## [0.4.1] - Phase P3 continued (declarative-fact protection)
+
+### Added
+- **Declarative-fact protection / `chat.facts([...])` DX API** (P3-2, the
+  second live-findings direction): `ChatSession.fact(text)` / `facts([...])`
+  mirror `constraints()` with one deliberate asymmetry - facts are
+  `span_class="fact"` and pinned, so keep_recent overflow and every other
+  destructive operator cannot drop them, but the pin is bounded by
+  `Aperture(fact_pin_budget)` (default 16). When a new fact exceeds the
+  budget the OLDEST facts are demoted in place (FIFO, recency wins - the
+  same posture keep_recent encodes); demoted facts stay live and droppable,
+  land in the archive on drop, and stay recoverable by the P3-1
+  evidence-aware re-admission. Two tiers: constraints are protected by
+  CLASS (absolute survival, governance text); facts are pinned under a
+  BUDGET (bounded survival, declarative knowledge) - explicit pinning
+  without bound would just re-price the session toward full history (risk
+  R8). Projects needing absolute fact survival can register the class:
+  `ap.engine.protected_classes.register("fact")`. Session stats gain
+  `facts_added` / `fact_demotions`; demotion is visible in every pre-call
+  window snapshot.
+
+### Changed
+- **Re-admission grounding gate tightened** (`aperture/readmit.py`): when
+  the missing reference set contains numbers, an archive hit must now carry
+  one of those numbers - word-only overlap on template vocabulary no longer
+  grounds a trigger. This closes a verified phantom-fire: a new statement
+  turn ("routine check 0 ok") matched dropped template turns ("routine
+  check 1 ok") on words alone and re-admitted stale content. The live
+  needle_qa trigger is unaffected (its archived fact carries the asked
+  number). Offline regression re-run: every cell byte-identical to the
+  P3-1 manifest at 1.00 tuned-arm success;
+  `results/compare/summary-20261114T162419.594611Z.json`.
+
 ## [0.4.0] - Phase P3 start (evidence-aware proactive re-admission)
 
 ### Added

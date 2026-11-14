@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -26,6 +27,7 @@ from aperture.models.gateway import ModelResponse, SyntheticGateway
 from aperture.policy.fallback import HeuristicSelector
 from aperture.readmit import READMIT_TOP_K, readmit_plan
 from aperture.session import (
+    SPAN_FACT,
     SPAN_TOOL_RESULT,
     Features,
     Span,
@@ -38,6 +40,8 @@ from aperture.trace.probes import (
     run_survival_probes,
 )
 from aperture.trace.replay import window_diff_to_record
+
+FACT_PIN_BUDGET = 16
 
 
 def _now_iso() -> str:
@@ -92,6 +96,8 @@ class Session:
             "probes_failed": 0,
             "readmits": 0,
             "readmit_spans": 0,
+            "facts_added": 0,
+            "fact_demotions": 0,
         }
 
     def add_span(
@@ -114,6 +120,50 @@ class Session:
             cache_head=cache_head,
         )
         self.window.spans.append(span)
+        return span
+
+    def add_fact(self, content: str) -> Span:
+        """Add a developer-marked fact span (P3-2): pinned so keep_recent
+        overflow and other destructive operators cannot drop it - while it
+        fits the pin budget.
+
+        The budget (`Aperture(fact_pin_budget)`, default 16) is the bound
+        that keeps explicit pinning from decaying into full-history pricing
+        (risk R8, over-preservation): when a new fact pushes the pinned-fact
+        count past the budget, the OLDEST facts are demoted in place (FIFO,
+        recency wins - the same posture keep_recent encodes). Demotion is a
+        session-side flag change, visible in every pre-call window snapshot;
+        demoted facts stay live and droppable, and on drop they are archived
+        like any other span - the P3-1 evidence-aware re-admission can
+        restore them.
+
+        Two tiers, deliberately asymmetric with constraints():
+
+        - `constraint` spans are protected by CLASS - absolute survival, no
+          bound, for governance text whose loss is a violation.
+        - `fact` spans are pinned under a BUDGET - bounded survival for
+          declarative knowledge whose loss is recoverable.
+
+        Projects that need absolute fact survival can register the class:
+        `ap.engine.protected_classes.register("fact")`.
+        """
+        span = self.add_span(content, span_class=SPAN_FACT, pinned=True)
+        self.stats["facts_added"] += 1
+        budget = getattr(self.runtime, "fact_pin_budget", FACT_PIN_BUDGET)
+        if budget < 0:
+            budget = 0
+        pinned_facts = [
+            s for s in self.window.spans if s.span_class == SPAN_FACT and s.pinned
+        ]
+        overflow = len(pinned_facts) - budget
+        if overflow > 0:
+            for i, s in enumerate(self.window.spans):
+                if overflow <= 0:
+                    break
+                if s.span_class == SPAN_FACT and s.pinned:
+                    self.window.spans[i] = replace(s, pinned=False)
+                    overflow -= 1
+                    self.stats["fact_demotions"] += 1
         return span
 
     def register_probe(self, probe_id: str, span_class: str, pattern: str) -> None:
@@ -298,6 +348,9 @@ class Aperture:
     the archive is restored via semantic_retrieval - so recovery never
     depends on the model admitting "unknown". `readmit_top_k` bounds the
     re-admission width (default 3).
+    `fact_pin_budget` (default 16) bounds Session.add_fact() pinning: fact
+    spans beyond the budget are demoted oldest-first (FIFO) and become
+    droppable (still archived, still recoverable by re-admission).
     """
 
     def __init__(
@@ -311,10 +364,12 @@ class Aperture:
         profile: str = "balanced",
         proactive_readmit: bool = True,
         readmit_top_k: int = READMIT_TOP_K,
+        fact_pin_budget: int = FACT_PIN_BUDGET,
     ) -> None:
         self.model = _resolve_model(model)
         self.proactive_readmit = proactive_readmit
         self.readmit_top_k = readmit_top_k
+        self.fact_pin_budget = fact_pin_budget
         self.ledger = ledger
         if selector is not None:
             self.selector = selector

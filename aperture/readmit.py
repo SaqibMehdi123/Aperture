@@ -26,9 +26,15 @@ Two gates keep the trigger precise:
    so a token that only ever appeared in dropped content counts as
    dangling; tokens still grounded elsewhere do not.
 2. **Grounding gate**: the archive must contain a span that lexically
-   matches the missing tokens (same min_score as ingestion). A statement
-   turn whose own number is merely excluded-by-definition finds no
-   grounding and fires nothing - the phantom-miss case stays silent.
+   matches the missing tokens (same min_score as ingestion), and when the
+   missing set contains NUMBERS, a grounding hit must contain one of those
+   numbers. Numbers are the critical dangling-reference class, and the
+   digit check is what keeps template-word overlap from manufacturing
+   evidence: a statement turn whose own number is new ("routine check 0
+   ok") finds only word-level matches in the archive ("routine check 1
+   ok") and stays silent - the phantom-miss case. A question that genuinely
+   references a dropped value ("the code for room 4?") finds the archived
+   fact carrying that number and fires.
 
 Cost bounds: at most one archive probe + one retrieval op per model call,
 top_k re-admitted spans (default 3), and the operator never admits content
@@ -255,9 +261,15 @@ def readmit_plan(
         return []
     # Grounding gate: some archived span must lexically match the missing
     # tokens themselves (not merely the full query text, whose template
-    # words could overlap archived boilerplate).
+    # words could overlap archived boilerplate). When the missing set has
+    # numbers, a hit must carry one of them - word-only overlap on template
+    # vocabulary is not evidence (module docstring, gate 2).
+    missing_digits = {t for t in missing if t.isdigit()}
     probe_query = " ".join(sorted(missing))
-    if not archive.search(probe_query, top_k=1, min_score=min_score):
+    hits = archive.search(probe_query, top_k=3, min_score=min_score)
+    if not hits:
+        return []
+    if missing_digits and not any(missing_digits & tokenize(h.content) for h in hits):
         return []
     return [
         PlannedOp(

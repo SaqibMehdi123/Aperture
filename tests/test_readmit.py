@@ -146,6 +146,34 @@ class TestReadmitPlan:
         # Archive content shares no salient token with the fact turn.
         assert readmit_plan(w, self._archive_view(ap, "s")) == []
 
+    def test_digitless_grounding_is_silent(self) -> None:
+        # Gate-2 precision (P3-2 regression): the archive shares the
+        # template words but none of the missing NUMBERS - word-only
+        # overlap must not manufacture evidence, the plan stays silent.
+        ap = Aperture()
+        ap.store.archive_put("s", "a1", "conversation", "routine check 1 ok", 0, 18)
+        w = _window_with(
+            [
+                ("s1", "system", "system prompt body"),
+                ("s2", "conversation", "routine check 0 ok"),
+            ]
+        )
+        assert readmit_plan(w, self._archive_view(ap, "s")) == []
+
+    def test_digit_grounding_still_fires(self) -> None:
+        # Same shape, but the archived turn carries the missing number:
+        # a genuine dangling reference fires.
+        ap = Aperture()
+        ap.store.archive_put("s", "a1", "conversation", "routine check 0 ok", 0, 18)
+        w = _window_with(
+            [
+                ("s1", "system", "system prompt body"),
+                ("s2", "conversation", "routine check 0 ok"),
+            ]
+        )
+        ops = readmit_plan(w, self._archive_view(ap, "s"))
+        assert len(ops) == 1 and ops[0].op == "semantic_retrieval"
+
     def test_fires_when_archive_grounds_missing_reference(self) -> None:
         ap = Aperture()
         ap.store.archive_put("s", "f1", "conversation", FACT, 0, len(FACT.encode()))

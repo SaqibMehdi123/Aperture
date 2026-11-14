@@ -123,11 +123,20 @@ ap = Aperture(model="openai/gpt-4o-mini")
 with ap.chat("support-bot") as chat:
     chat.system("You are a careful support agent.")  # pinned + cache-headed
     chat.constraints(["Never reveal internal tool names."])  # protected by class
+    chat.facts(["The customer's plan is Enterprise, renewed 2027-01-15."])  # pinned under a budget
 
     reply = chat.send("Where is my order 1234?")
     reply = chat.send(tool_output, role="tool")  # user | tool | system
     print(chat.stats())
 ```
+
+`chat.facts([...])` (P3-2) marks declarative knowledge the conversation will
+need later. Facts are pinned so curation cannot drop them while they fit the
+fact pin budget (`Aperture(fact_pin_budget=16)`); beyond the budget the
+oldest facts are demoted FIFO - still archived, so the evidence-aware
+re-admission restores them when a later turn references their content.
+Constraints stay absolutely protected by class; facts are bounded on purpose:
+pinning everything is just full-history pricing with extra steps.
 
 `chat.stats()` returns cumulative counters, e.g.:
 
@@ -141,6 +150,8 @@ with ap.chat("support-bot") as chat:
     "cache_misses": 1,
     "bytes_dropped": 0,
     "spans_dropped": 0,
+    "facts_added": 1,
+    "fact_demotions": 0,
     "cache_hit_rate": 0.5,
 }
 ```
@@ -313,11 +324,14 @@ Phases and gates follow [`docs/SPEC.md`](docs/SPEC.md) Table 6.
 
 - [x] P0 — trace schema v1, eval harness, context-rot + ConstraintRot probes, toy loop end to end
 - [x] P1 — seven operators, LiteLLM gateway with cache telemetry, LangGraph adapter, SQLite store + archive, protected classes, `chat()` API
-- [ ] P2 — tuned fixed-heuristic selector, 8-arm harness on AppWorld/tau2 subsets, gate G1 (≥30% savings at equal accuracy)
+- [x] P2 — tuned fixed-heuristic selector, 8-arm harness on AppWorld/tau2 subsets, gate G1 (≥30% savings at equal accuracy)
   - [x] tuned selector shipped as the default `balanced` profile (53.1% train-split savings; [`eval/tune.py`](eval/tune.py))
   - [x] offline 6-arm comparison + G1 rehearsal passed (39–58% savings at equal success, 100% traced; [`eval/compare.py`](eval/compare.py))
-  - [ ] real-model AppWorld / tau2-bench runs (needs an LLM API key)
+  - [x] real-model live runs (Groq + Gemini free tiers, [`eval/live.py`](eval/live.py)): savings replicate at 36–60%; G1-live parity PASSES on Groq under the P3-1 runtime (min savings 36–37% at equal success)
 - [ ] P3 — labelled traces, offline bandit selector, CurateBench artifact release, gate G2
+  - [x] P3-1 evidence-aware proactive re-admission (live-verified: needle_qa parity 0.0 → 1.0 on Groq)
+  - [x] P3-2 declarative-fact protection: `chat.facts([...])` DX API + bounded pin budget
+  - [ ] live Gemini re-dispatch under the P3 runtime; tool-assisted aggregate tasks; trace collection + bandit selector
 - [ ] P4 — advanced-gap features: cache-aware reward, decay alerts, online adaptation, context contracts, async scheduler (gate G3)
 - [ ] P5 — full comparative evaluation, observability dashboard, release, paper (gate G4)
 

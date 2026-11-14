@@ -169,3 +169,31 @@ the arm-fair blank-reply re-ask (commit `4cfb449`) recovered it on re-run
   runtime is the next live turn (tight free-tier RPM, needs its own window).
 - aggregate_batch parity needs tool-assisted summation tasks (direction 4)
   before it can grade either arm meaningfully.
+
+## Update 2026-11-15: P3-2 shipped (direction 2), grounding gate tightened
+
+- **Direction 2 is implemented in the runtime**: `chat.facts([...])` /
+  `Session.add_fact()` - facts are `span_class="fact"`, pinned under
+  `Aperture(fact_pin_budget)` (default 16, FIFO demotion of the oldest
+  facts beyond the budget). This is the prevention layer that pairs with
+  P3-1's recovery layer: within budget, a marked fact never leaves the
+  window at all (no archive round trip, no lexical-trigger dependence -
+  the trigger cannot miss what was never dropped); beyond budget, the
+  demoted fact flows through drop -> archive -> P3-1 re-admission as
+  before. Direction 2's alternative form (selector-side automatic
+  declarative-statement detection) stays on the watchlist - explicit
+  marking keeps the decision honest and the API mirrors `constraints()`.
+- **Grounding-gate precision fix found by the P3-2 tests**: P3-1's
+  grounding gate could fire on template-word overlap alone - a new
+  statement turn ("routine check 0 ok") matched dropped template turns
+  ("routine check 1 ok") on words and re-admitted stale content, despite
+  the module docstring's phantom-miss promise. The gate now requires a
+  digit match when the missing reference set contains numbers. The
+  validated live needle_qa trigger is unaffected (the archived fact
+  carries the asked number); the offline regression re-run below confirms
+  the tuned arms keep 1.00 success.
+- Offline regression (6 arms x 3 families x 20 tasks, deterministic
+  models): every cell byte-identical to the P3-1 manifest
+  (summary-20261113T173232.109068Z.json) - tuned arms hold 1.00 success at
+  -63/-61/-41% savings; the new aggregate manifest:
+  `results/compare/summary-20261114T162419.594611Z.json`.
